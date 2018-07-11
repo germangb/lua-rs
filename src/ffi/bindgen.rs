@@ -87,12 +87,6 @@ pub const LUA_MASKCALL: u32 = 1;
 pub const LUA_MASKRET: u32 = 2;
 pub const LUA_MASKLINE: u32 = 4;
 pub const LUA_MASKCOUNT: u32 = 8;
-pub const LUA_ERRFILE: u32 = 7;
-pub const LUA_LOADED_TABLE: &'static [u8; 8usize] = b"_LOADED\0";
-pub const LUA_PRELOAD_TABLE: &'static [u8; 9usize] = b"_PRELOAD\0";
-pub const LUA_NOREF: i32 = -2;
-pub const LUA_REFNIL: i32 = -1;
-pub const LUA_FILEHANDLE: &'static [u8; 6usize] = b"FILE*\0";
 pub const LUA_VERSUFFIX: &'static [u8; 5usize] = b"_5_3\0";
 pub const LUA_COLIBNAME: &'static [u8; 10usize] = b"coroutine\0";
 pub const LUA_TABLIBNAME: &'static [u8; 6usize] = b"table\0";
@@ -104,6 +98,12 @@ pub const LUA_BITLIBNAME: &'static [u8; 6usize] = b"bit32\0";
 pub const LUA_MATHLIBNAME: &'static [u8; 5usize] = b"math\0";
 pub const LUA_DBLIBNAME: &'static [u8; 6usize] = b"debug\0";
 pub const LUA_LOADLIBNAME: &'static [u8; 8usize] = b"package\0";
+pub const LUA_ERRFILE: u32 = 7;
+pub const LUA_LOADED_TABLE: &'static [u8; 8usize] = b"_LOADED\0";
+pub const LUA_PRELOAD_TABLE: &'static [u8; 9usize] = b"_PRELOAD\0";
+pub const LUA_NOREF: i32 = -2;
+pub const LUA_REFNIL: i32 = -1;
+pub const LUA_FILEHANDLE: &'static [u8; 6usize] = b"FILE*\0";
 pub type va_list = __builtin_va_list;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -595,6 +595,9 @@ pub struct lua_Debug {
     pub short_src: [::std::os::raw::c_char; 60usize],
     pub i_ci: *mut CallInfo,
 }
+extern "C" {
+    pub fn luaL_openlibs(L: *mut lua_State);
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct luaL_Reg {
@@ -836,9 +839,6 @@ extern "C" {
         B: *mut luaL_Buffer,
         sz: usize,
     ) -> *mut ::std::os::raw::c_char;
-}
-extern "C" {
-    pub fn luaL_openlibs(L: *mut lua_State);
 }
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]

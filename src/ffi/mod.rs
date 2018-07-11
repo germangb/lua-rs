@@ -4,3 +4,4 @@
 
 include!("bindgen.rs");
 include!("lua_macros.rs");
+include!("lauxlib_macros.rs");

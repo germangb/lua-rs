@@ -54,7 +54,7 @@ fn main() {
         .header("wrapper.h")
         .layout_tests(false)
         .whitelist_function("^lua(L?)_(.*)")
-        .whitelist_var("^LUA_(.*)")
+        .whitelist_var("^LUA(L?)_(.*)")
         .clang_args(&[
             // TODO fix generally
             "-I/usr/lib/llvm-6.0/lib/clang/6.0.0/include",
