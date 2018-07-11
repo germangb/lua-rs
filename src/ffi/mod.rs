@@ -3,3 +3,4 @@
 #![allow(non_upper_case_globals)]
 
 include!("bindgen.rs");
+include!("lua_macros.rs");

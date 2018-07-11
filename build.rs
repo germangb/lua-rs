@@ -1,3 +1,4 @@
+extern crate bindgen;
 extern crate cc;
 
 fn main() {
@@ -46,4 +47,23 @@ fn main() {
         .files(libs)
         .file("lua/lauxlib.c")
         .compile("lua");
+    
+
+    use bindgen::builder;
+
+    let bindings = builder().header("wrapper.h")
+        .layout_tests(false)
+        .whitelist_function("^lua(L?)_(.*)")
+        .whitelist_var("^LUA_(.*)")
+        .clang_args(&[
+            // TODO fix generally
+            "-I/usr/lib/llvm-6.0/lib/clang/6.0.0/include",
+
+            "-Ilua",
+        ])
+        .generate()
+        .expect("Error generaring bindings");
+
+    bindings.write_to_file("src/ffi/bindgen.rs")
+        .expect("IO error");
 }
