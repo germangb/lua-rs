@@ -43,7 +43,6 @@ fn main() {
 
     cc::Build::new()
         .files(core)
-        //#[cfg(feature = "libs")]
         .files(libs)
         .file("lua/lauxlib.c")
         .compile("lua");
