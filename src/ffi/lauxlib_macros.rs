@@ -31,17 +31,24 @@
 #[inline]
 pub unsafe fn luaL_checkversion(L: *mut lua_State) {
     //luaL_checkversion_(L, LUA_VERSION_NUM as _, LUAL_NUMSIZES as _)
-    luaL_checkversion_(L, LUA_VERSION_NUM as _, (::std::mem::size_of::<lua_Integer>() * 16 + ::std::mem::size_of::<lua_Number>()) as _)
+    luaL_checkversion_(
+        L,
+        LUA_VERSION_NUM as _,
+        (::std::mem::size_of::<lua_Integer>() * 16 + ::std::mem::size_of::<lua_Number>()) as _,
+    )
 }
 
 #[inline]
-pub unsafe fn luaL_loadfile(L: *mut lua_State, f: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int {
+pub unsafe fn luaL_loadfile(
+    L: *mut lua_State,
+    f: *const ::std::os::raw::c_char,
+) -> ::std::os::raw::c_int {
     luaL_loadfilex(L, f, 0 as _)
 }
 
 //#[inline]
 //pub unsafe fn luaL_newlibtable(L: *mut lua_State, l){
-//	lua_createtable(L, 0, sizeof(l)/sizeof((l)[0]) - 1) 
+//	lua_createtable(L, 0, sizeof(l)/sizeof((l)[0]) - 1)
 //}
 
 //#[inline]
@@ -53,24 +60,32 @@ pub unsafe fn luaL_loadfile(L: *mut lua_State, f: *const ::std::os::raw::c_char)
 
 //#[inline]
 //pub unsafe fn luaL_argcheck(L: *mut lua_State, cond, arg, extramsg) {
-//	((void)((cond) || luaL_argerror(L, (arg), (extramsg)))) 
+//	((void)((cond) || luaL_argerror(L, (arg), (extramsg))))
 //}
 
 #[inline]
-pub unsafe fn luaL_checkstring(L: *mut lua_State,n: ::std::os::raw::c_int) -> *const ::std::os::raw::c_char {
-	luaL_checklstring(L, n, 0 as _)
+pub unsafe fn luaL_checkstring(
+    L: *mut lua_State,
+    n: ::std::os::raw::c_int,
+) -> *const ::std::os::raw::c_char {
+    luaL_checklstring(L, n, 0 as _)
 }
 
 #[inline]
-pub unsafe fn luaL_optstring(L: *mut lua_State, n: ::std::os::raw::c_int, d: *const ::std::os::raw::c_char)
-    -> *const ::std::os::raw::c_char
-{
-	luaL_optlstring(L, n, d, 0 as _)
+pub unsafe fn luaL_optstring(
+    L: *mut lua_State,
+    n: ::std::os::raw::c_int,
+    d: *const ::std::os::raw::c_char,
+) -> *const ::std::os::raw::c_char {
+    luaL_optlstring(L, n, d, 0 as _)
 }
 
 #[inline]
-pub unsafe fn luaL_typename(L: *mut lua_State, i: ::std::os::raw::c_int) -> *const ::std::os::raw::c_char {
-	lua_typename(L, lua_type(L,i)) 
+pub unsafe fn luaL_typename(
+    L: *mut lua_State,
+    i: ::std::os::raw::c_int,
+) -> *const ::std::os::raw::c_char {
+    lua_typename(L, lua_type(L, i))
 }
 
 #[inline]
@@ -84,31 +99,39 @@ pub unsafe fn luaL_dostring(L: *mut lua_State, s: *const ::std::os::raw::c_char)
 }
 
 #[inline]
-pub unsafe fn luaL_getmetatable(L: *mut lua_State, n: *const ::std::os::raw::c_char)  -> ::std::os::raw::c_int {
-	lua_getfield(L, LUA_REGISTRYINDEX, n) 
+pub unsafe fn luaL_getmetatable(
+    L: *mut lua_State,
+    n: *const ::std::os::raw::c_char,
+) -> ::std::os::raw::c_int {
+    lua_getfield(L, LUA_REGISTRYINDEX, n)
 }
 
 //#[inline]
 //pub unsafe fn luaL_opt(L: *mut lua_State,f,n,d){
-//	(lua_isnoneornil(L,(n)) ? (d) : f(L,(n))) 
+//	(lua_isnoneornil(L,(n)) ? (d) : f(L,(n)))
 //}
 
 #[inline]
-pub unsafe fn luaL_loadbuffer(L: *mut lua_State, s: *const ::std::os::raw::c_char, sz: usize, n: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int {
-    luaL_loadbufferx(L, s, sz, n, 0 as _) 
+pub unsafe fn luaL_loadbuffer(
+    L: *mut lua_State,
+    s: *const ::std::os::raw::c_char,
+    sz: usize,
+    n: *const ::std::os::raw::c_char,
+) -> ::std::os::raw::c_int {
+    luaL_loadbufferx(L, s, sz, n, 0 as _)
 }
 
 //#[inline]
 //pub unsafe fn luaL_addchar(B: *mut luaL_Buffer, c){
-//    ((void)((B)->n < (B)->size || luaL_prepbuffsize((B), 1)), ((B)->b[(B)->n++] = (c))) 
+//    ((void)((B)->n < (B)->size || luaL_prepbuffsize((B), 1)), ((B)->b[(B)->n++] = (c)))
 //}
 
 #[inline]
-pub unsafe fn luaL_addsize(B: *mut luaL_Buffer, s: usize){
+pub unsafe fn luaL_addsize(B: *mut luaL_Buffer, s: usize) {
     (*B).n += s;
 }
 
 //#[inline]
 //pub unsafe fn luaL_prepbuffer(B: *mut luaL_Buffer) -> *mut ::std::os::raw::c_char {
-//    luaL_prepbuffsize(B, LUAL_BUFFERSIZE) 
+//    luaL_prepbuffsize(B, LUAL_BUFFERSIZE)
 //}
