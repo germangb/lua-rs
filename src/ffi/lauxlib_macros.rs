@@ -46,22 +46,30 @@ pub unsafe fn luaL_loadfile(
     luaL_loadfilex(L, f, 0 as _)
 }
 
-//#[inline]
-//pub unsafe fn luaL_newlibtable(L: *mut lua_State, l){
-//	lua_createtable(L, 0, sizeof(l)/sizeof((l)[0]) - 1)
-//}
+#[inline]
+pub unsafe fn luaL_newlibtable(L: *mut lua_State, l: *const luaL_Reg){
+    unimplemented!()
+	//lua_createtable(L, 0, len - 1)
+}
 
-//#[inline]
-//pub unsafe fn luaL_newlib(L: *mut lua_State, l){
-//  luaL_checkversion(L);
-//  luaL_newlibtable(L,l);
-//  luaL_setfuncs(L,l,0);
-//}
+#[inline]
+pub unsafe fn luaL_newlib(L: *mut lua_State, l: *const luaL_Reg) {
+  luaL_checkversion(L);
+  luaL_newlibtable(L,l);
+  luaL_setfuncs(L,l,0);
+}
 
-//#[inline]
-//pub unsafe fn luaL_argcheck(L: *mut lua_State, cond, arg, extramsg) {
-//	((void)((cond) || luaL_argerror(L, (arg), (extramsg))))
-//}
+#[inline]
+pub unsafe fn luaL_argcheck(
+    L: *mut lua_State,
+    cond : :: std :: os :: raw :: c_int ,
+    arg : :: std :: os :: raw :: c_int ,
+    extramsg: * const :: std :: os :: raw :: c_char,
+) {
+    if cond == 0 {
+        luaL_argerror(L, arg, extramsg);
+    }
+}
 
 #[inline]
 pub unsafe fn luaL_checkstring(
@@ -89,13 +97,23 @@ pub unsafe fn luaL_typename(
 }
 
 #[inline]
-pub unsafe fn luaL_dofile(L: *mut lua_State, fn_: *const ::std::os::raw::c_char) {
-    let _ = luaL_loadfile(L, fn_) > 0 || lua_pcall(L, 0, LUA_MULTRET, 0) > 0;
+pub unsafe fn luaL_dofile(L: *mut lua_State, fn_: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int {
+    let mut state = luaL_loadfile(L, fn_);
+    if state == 0 {
+        state = lua_pcall(L, 0, LUA_MULTRET, 0);
+    }
+
+    state
 }
 
 #[inline]
-pub unsafe fn luaL_dostring(L: *mut lua_State, s: *const ::std::os::raw::c_char) {
-    let _ = luaL_loadstring(L, s) > 0 || lua_pcall(L, 0, LUA_MULTRET, 0) > 0;
+pub unsafe fn luaL_dostring(L: *mut lua_State, s: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int {
+    let mut state = luaL_loadstring(L, s);
+    if state == 0 {
+        state = lua_pcall(L, 0, LUA_MULTRET, 0);
+    }
+
+    state
 }
 
 #[inline]
