@@ -27,11 +27,16 @@ fn main() {
         }
 
         match lua_state.load(&lua_source) {
-            Ok(_) => {},
+            Ok(_) => lua_source.clear(),
             Err(LuaError::Syntax) => {
-                if !line.trim().is_empty() {
-                    continue
+                if line.trim().is_empty() {
+                    eprintln!("Syntax error\n===");
+                    eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
+                    lua_source.clear();
                 }
+
+                lua_state.pop(1);
+                continue
             },
             _ => panic!(),
         }
@@ -41,16 +46,11 @@ fn main() {
         match lua_state.call_protected(0, 0) {
             Ok(_) => {},
             Err(LuaError::Runtime) => {
-                //eprintln!("runtime error");
-                {
-                    let error: &str = lua_state.get_value(Index::Top(1)).unwrap();
-                    eprintln!("{}", error);
-                }
+                eprintln!("Ruintime error\n===");
+                eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
                 lua_state.pop(1);
             },
             _ => panic!(),
         }
-
-        lua_source.clear();
     }
 }
