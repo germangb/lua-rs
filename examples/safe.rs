@@ -1,28 +1,22 @@
 extern crate lua;
 
-use lua::{LuaState, Index};
+use lua::{Index, LuaState, LuaSource};
 
 fn main() {
     let mut state = LuaState::new();
     state.open_libs();
 
-    state.push_value(1.1);
-    state.push_value(2.2);
-    state.push_value(3.3);
+    state.push_value("hello, world!");
 
-    println!("top: {:?}", state.get_value::<f64>(Index::Top(1)));
-    println!("bot: {:?}", state.get_value::<f32>(Index::Bottom(1)));
+    // reading a string borrows the LuaState because the pointer is managed by lua
+    {
+        let value: &str = state.get_value(Index::Top(1)).unwrap();
 
-    // attempt to get top as integer
-    println!("bot as int: {:?}", state.get_value::<i32>(Index::Bottom(1)));
+        println!("value at the top = {}", value);
+    }
 
-    // replace the bottom value with an integer
-    state.push_value(3);
-    state.replace(Index::Bottom(1));
-    println!("bot as int: {:?}", state.get_value::<i32>(Index::Bottom(1)));
+    state.push_value(42);
+    println!("value at the top = {}", state.get_value::<i64>(Index::Top(1)).unwrap());
 
-    state.push_value("42.0");
-    println!("top as int: {:?}", state.get_value::<i32>(Index::Top(1)));
-    println!("top as f64: {:?}", state.get_value::<f64>(Index::Top(1)));
-    println!("top as str: {:?}", state.get_value::<&str>(Index::Top(1)));
+    state.pop(1);
 }
