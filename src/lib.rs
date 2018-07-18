@@ -3,14 +3,14 @@ pub mod ffi;
 use std::ffi::{OsString, OsStr};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum Error {
+pub enum LuaError {
     Runtime,
     Syntax,
     Memory,
     Gc,
 }
 
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ::std::result::Result<T, LuaError>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Index {
@@ -34,10 +34,16 @@ impl Index {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LuaSource {
     buffer: Vec<u8>,
-    len: usize,
+}
+
+impl ::std::fmt::Debug for LuaSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        let len = self.len();
+        write!(f, "{}", ::std::str::from_utf8(&self.buffer[..len]).unwrap())
+    }
 }
 
 impl LuaSource {
@@ -46,9 +52,10 @@ impl LuaSource {
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
+        let mut buffer = Vec::with_capacity(capacity + 1);
+        buffer.push(1);
         Self {
-            buffer: Vec::with_capacity(capacity),
-            len: 0,
+            buffer, 
         }
     }
 
@@ -58,15 +65,23 @@ impl LuaSource {
         self.buffer.pop();
         self.buffer.extend_from_slice(slice);
         self.buffer.push(0);
-        self.len += slice.len();
     }
 
     pub fn as_ptr(&self) -> *const u8 {
         self.buffer.as_ptr()
     }
 
+    pub fn is_empty(&self) -> bool {
+        return self.len() == 0
+    }
+
     pub fn len(&self) -> usize {
-        self.len
+        self.buffer.len() - 1
+    }
+
+    pub fn clear(&mut self) {
+        self.buffer.clear();
+        self.buffer.push(0);
     }
 }
 
@@ -187,14 +202,25 @@ impl LuaState {
         Ok(())
     }
 
+    pub fn call_protected(&mut self, nargs: usize, nresults: usize) -> Result<()> {
+        unsafe {
+            match ffi::lua_pcall(self.lua_state, nargs as _, nresults as _, 0) as _ {
+                ffi::LUA_OK => Ok(()),
+                ffi::LUA_ERRRUN => Err(LuaError::Runtime),
+                ffi::LUA_ERRMEM => Err(LuaError::Memory),
+                ffi::LUA_ERRGCMM => Err(LuaError::Gc),
+                _ => unreachable!(),
+            }
+        }
+    }
+
     pub fn load(&mut self, source: &LuaSource) -> Result<()> {
         unsafe {
             match ffi::luaL_loadstring(self.lua_state, source.as_ptr() as _) as _ {
                 ffi::LUA_OK => Ok(()),
-                ffi::LUA_ERRRUN => Err(Error::Runtime),
-                ffi::LUA_ERRSYNTAX => Err(Error::Syntax),
-                ffi::LUA_ERRMEM => Err(Error::Memory),
-                ffi::LUA_ERRGCMM => Err(Error::Gc),
+                ffi::LUA_ERRSYNTAX => Err(LuaError::Syntax),
+                ffi::LUA_ERRMEM => Err(LuaError::Memory),
+                ffi::LUA_ERRGCMM => Err(LuaError::Gc),
                 _ => unreachable!(),
             }
         }
