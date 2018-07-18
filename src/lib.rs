@@ -1,6 +1,6 @@
 pub mod ffi;
 
-use std::ffi::{OsString, OsStr};
+use std::ffi::{OsStr, OsString};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum LuaError {
@@ -8,6 +8,45 @@ pub enum LuaError {
     Syntax,
     Memory,
     Gc,
+}
+
+#[derive(Debug)]
+pub struct LuaGc<'a> {
+    state: &'a LuaState,
+}
+
+impl<'a> LuaGc<'a> {
+    pub fn collect(&mut self) {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCCOLLECT as _, 0) };
+    }
+
+    pub fn stop(&mut self) {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSTOP as _, 0) };
+    }
+
+    pub fn restart(&mut self) {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCRESTART as _, 0) };
+    }
+
+    pub fn step(&mut self, arg: i32) {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSTEP as _, arg) };
+    }
+
+    pub fn set_pause(&mut self, arg: i32) -> i32 {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSETPAUSE as _, arg) }
+    }
+
+    pub fn set_step_mul(&mut self, arg: i32) -> i32 {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSETPAUSE as _, arg) }
+    }
+
+    pub fn is_running(&self) -> bool {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCISRUNNING as _, 0) != 0 }
+    }
+
+    pub fn count(&self) -> i32 {
+        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCCOUNT as _, 0) }
+    }
 }
 
 pub type Result<T> = ::std::result::Result<T, LuaError>;
@@ -54,9 +93,7 @@ impl LuaSource {
     pub fn with_capacity(capacity: usize) -> Self {
         let mut buffer = Vec::with_capacity(capacity + 1);
         buffer.push(1);
-        Self {
-            buffer, 
-        }
+        Self { buffer }
     }
 
     pub fn extend<T: AsRef<[u8]>>(&mut self, s: T) {
@@ -72,7 +109,7 @@ impl LuaSource {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.len() == 0
+        return self.len() == 0;
     }
 
     pub fn len(&self) -> usize {
@@ -229,6 +266,10 @@ impl LuaState {
     #[inline]
     pub fn pop(&mut self, n: usize) {
         unsafe { ffi::lua_pop(self.lua_state, n as _) }
+    }
+
+    pub fn gc(&self) -> LuaGc {
+        LuaGc { state: self }
     }
 
     #[inline]

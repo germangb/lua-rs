@@ -1,6 +1,6 @@
 extern crate lua;
 
-use lua::{Index, LuaState, LuaSource};
+use lua::{Index, LuaSource, LuaState};
 
 fn main() {
     let mut state = LuaState::new();
@@ -16,7 +16,10 @@ fn main() {
     }
 
     state.push_value(42);
-    println!("value at the top = {}", state.get_value::<i64>(Index::Top(1)).unwrap());
+    println!(
+        "value at the top = {}",
+        state.get_value::<i64>(Index::Top(1)).unwrap()
+    );
 
     state.pop(1);
 }
