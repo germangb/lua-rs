@@ -1,14 +1,7 @@
+pub mod error;
 pub mod ffi;
 
-use std::ffi::{OsStr, OsString};
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum LuaError {
-    Runtime,
-    Syntax,
-    Memory,
-    Gc,
-}
+pub use error::Error;
 
 #[derive(Debug)]
 pub struct LuaGc<'a> {
@@ -49,7 +42,7 @@ impl<'a> LuaGc<'a> {
     }
 }
 
-pub type Result<T> = ::std::result::Result<T, LuaError>;
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Index {
@@ -243,9 +236,9 @@ impl LuaState {
         unsafe {
             match ffi::lua_pcall(self.lua_state, nargs as _, nresults as _, 0) as _ {
                 ffi::LUA_OK => Ok(()),
-                ffi::LUA_ERRRUN => Err(LuaError::Runtime),
-                ffi::LUA_ERRMEM => Err(LuaError::Memory),
-                ffi::LUA_ERRGCMM => Err(LuaError::Gc),
+                ffi::LUA_ERRRUN => Err(Error::Runtime),
+                ffi::LUA_ERRMEM => Err(Error::Memory),
+                ffi::LUA_ERRGCMM => Err(Error::Gc),
                 _ => unreachable!(),
             }
         }
@@ -255,9 +248,9 @@ impl LuaState {
         unsafe {
             match ffi::luaL_loadstring(self.lua_state, source.as_ptr() as _) as _ {
                 ffi::LUA_OK => Ok(()),
-                ffi::LUA_ERRSYNTAX => Err(LuaError::Syntax),
-                ffi::LUA_ERRMEM => Err(LuaError::Memory),
-                ffi::LUA_ERRGCMM => Err(LuaError::Gc),
+                ffi::LUA_ERRSYNTAX => Err(Error::Syntax),
+                ffi::LUA_ERRMEM => Err(Error::Memory),
+                ffi::LUA_ERRGCMM => Err(Error::Gc),
                 _ => unreachable!(),
             }
         }

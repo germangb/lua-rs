@@ -3,7 +3,7 @@ extern crate lua;
 use std::io;
 use std::io::Read;
 
-use lua::{Index, LuaError, LuaSource, LuaState};
+use lua::{Error, Index, LuaSource, LuaState};
 
 fn main() {
     let mut stdin = io::stdin();
@@ -28,7 +28,7 @@ fn main() {
 
         match lua_state.load(&lua_source) {
             Ok(_) => lua_source.clear(),
-            Err(LuaError::Syntax) => {
+            Err(Error::Syntax) => {
                 if line.trim().is_empty() {
                     eprintln!("Syntax error\n===");
                     eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
@@ -45,7 +45,7 @@ fn main() {
 
         match lua_state.call_protected(0, 0) {
             Ok(_) => {}
-            Err(LuaError::Runtime) => {
+            Err(Error::Runtime) => {
                 eprintln!("Ruintime error\n===");
                 eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
                 lua_state.pop(1);
