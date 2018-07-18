@@ -1,11 +1,6 @@
-extern crate num_traits;
-
 pub mod ffi;
 
-use num_traits::Num;
-use num_traits::FromPrimitive;
-use num_traits::NumCast;
-use num_traits::float::Float;
+use std::ffi::OsString;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum LuaLib {
@@ -55,44 +50,90 @@ impl Drop for LuaState {
     }
 }
 
-pub trait ToNumber: Num + NumCast {
-    fn to_number(state: &LuaState, idx: Index) -> Option<Self> {
-        unsafe {
-            let mut result = 0;
-            let value = ffi::lua_tonumberx(state.lua_state, idx.as_absolute(), &mut result);
+pub trait FromLua: Sized {
+    unsafe fn from_lua(state: *mut ffi::lua_State, index: ::std::os::raw::c_int) -> Option<Self>;
+}
 
-            if result == 0 {
-                None
-            } else {
-                <Self as NumCast>::from(value)
-            }
+pub trait IntoLua {
+    unsafe fn into_lua(self, state: *mut ffi::lua_State);
+}
+
+impl IntoLua for &'static str {
+    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
+        ffi::lua_pushlstring(state, self.as_ptr() as _, self.len() as _);
+    }
+}
+
+impl<'a> FromLua for &'a str {
+    unsafe fn from_lua(state: *mut ffi::lua_State, index: ::std::os::raw::c_int) -> Option<Self> {
+        let mut len = 0;
+
+        let ptr = ffi::lua_tolstring(state, index, &mut len);
+        if ptr.is_null() {
+            None
+        } else {
+            let slice = ::std::slice::from_raw_parts(ptr as *const u8, len);
+            ::std::str::from_utf8(slice).ok()
         }
     }
 }
 
-pub trait PushNumber: Float {
-    fn push_number(self, state: &mut LuaState) {
-        unsafe {
-            let value = 0.0;
-            ffi::lua_pushnumber(state.lua_state, value)
-        }
-    }
-}
-
-macro_rules! impl_number {
-    ( $($type:ty),+ ) => {
+macro_rules! impl_numeric {
+    (
+        $( ( $( $type:ty ),+ ) => $lua_push:ident, $lua_to:ident )+
+    ) => {
         $(
-            impl PushNumber for $type {}
-            impl ToNumber for $type {}
+            $(
+                impl IntoLua for $type {
+                    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
+                        ffi::$lua_push(state, self as _);
+                    }
+                }
+
+                impl FromLua for $type {
+                    unsafe fn from_lua(state: *mut ffi::lua_State, index: ::std::os::raw::c_int) -> Option<Self> {
+                        let mut isnum = 0;
+
+                        let value = ffi::$lua_to(state, index, &mut isnum);
+
+                        if isnum == 0 {
+                            None
+                        } else {
+                            Some(value as $type)
+                        }
+                    }
+                }
+            )+
         )+
     }
 }
 
-impl_number! { f64, f32 }
-//impl_number! { lua_pushinteger, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize }
+impl_numeric! {
+    (f64, f32) => lua_pushnumber, lua_tonumberx
+    (i64, i32, i16, i8) => lua_pushinteger, lua_tointegerx
+}
+
+impl IntoLua for bool {
+    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
+        if self {
+            ffi::lua_pushboolean(state, 1);
+        } else {
+            ffi::lua_pushboolean(state, 0);
+        }
+    }
+}
+
+impl FromLua for bool {
+    unsafe fn from_lua(state: *mut ffi::lua_State, index: ::std::os::raw::c_int) -> Option<Self> {
+        if ffi::lua_toboolean(state, index) == 0 {
+            Some(true)
+        } else {
+            Some(false)
+        }
+    }
+}
 
 impl LuaState {
-    /// Creata a bare bones lua VM
     pub fn new() -> Self {
         unsafe {
             LuaState {
@@ -101,33 +142,30 @@ impl LuaState {
         }
     }
 
-    /// Consumes this `LuaState` and closes the VM
     pub fn close(self) {}
 
-    /// Pop n values from the stack
     pub fn pop(&mut self, n: usize) {
         unsafe { ffi::lua_pop(self.lua_state, n as _) }
     }
 
-    /// Push a new number to the top of the stack
-    pub fn push_number<N: PushNumber>(&mut self, value: N) {
-        value.push_number(self)
-    }
- 
-    /// Returns an optional of the number value at the given index. Equivalent to
-    /// `ffi::lua_tonumber`
-    pub fn to_number<N: ToNumber>(&self, idx: Index) -> Option<N> {
-        N::to_number(self, idx)
+    pub fn push_value<T: IntoLua>(&mut self, value: T) {
+        unsafe { value.into_lua(self.lua_state) }
     }
 
-    /// Push nil to the top of the stack. Equivalent to `ffi::lua_pushnil()`
+    pub fn get_value<F: FromLua>(&self, index: Index) -> Option<F> {
+        unsafe { F::from_lua(self.lua_state, index.as_absolute()) }
+    }
+
     pub fn push_nil(&mut self) {
         unsafe { ffi::lua_pushnil(self.lua_state) }
     }
 
-    /// Returns true if the value at the given index is nil
     pub fn is_nil(&self, idx: Index) -> bool {
         unsafe { ffi::lua_isnil(self.lua_state, idx.as_absolute()) }
+    }
+
+    pub fn replace(&mut self, idx: Index) {
+        unsafe { ffi::lua_replace(self.lua_state, idx.as_absolute()) }
     }
 
     /// Load standard libraries

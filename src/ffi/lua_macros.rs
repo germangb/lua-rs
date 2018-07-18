@@ -20,8 +20,8 @@
 // (*) #define lua_pushglobaltable(L)  ((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
 // #define lua_tostring(L,i)	lua_tolstring(L, (i), NULL)
 // #define lua_insert(L,idx)	lua_rotate(L, (idx), 1)
-// (*) #define lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
-// (*) #define lua_replace(L,idx) (lua_copy(L, -1, (idx)), lua_pop(L, 1))
+// #define lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
+// #define lua_replace(L,idx) (lua_copy(L, -1, (idx)), lua_pop(L, 1))
 //
 // #if defined(LUA_COMPAT_APIINTCASTS)
 //
@@ -135,4 +135,16 @@ pub unsafe fn lua_tostring(
 #[inline]
 pub unsafe fn lua_insert(L: *mut lua_State, idx: ::std::os::raw::c_int) {
     lua_rotate(L, idx, 1)
+}
+
+#[inline]
+pub unsafe fn lua_remove(L: *mut lua_State, idx: ::std::os::raw::c_int) {
+    lua_rotate(L, idx, -1);
+    lua_pop(L, 1);
+}
+
+#[inline]
+pub unsafe fn lua_replace(L: *mut lua_State, idx: ::std::os::raw::c_int) {
+    lua_copy(L, -1, idx);
+    lua_pop(L, 1);
 }
