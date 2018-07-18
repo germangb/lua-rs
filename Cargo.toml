@@ -4,8 +4,12 @@ version = "0.1.0"
 authors = ["german gomez <germangb42@gmail.com>"]
 
 [dependencies]
-num-traits = "0.2.5"
 
 [build-dependencies]
 cc = "1.0"
 bindgen = "0.37"
+
+[features]
+default = ["stdlib"]
+
+stdlib = []

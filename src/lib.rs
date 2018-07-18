@@ -3,21 +3,6 @@ pub mod ffi;
 use std::ffi::OsString;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum LuaLib {
-    Base,
-    Bit,
-    Coroutine,
-    Debug,
-    Io,
-    Math,
-    Package,
-    Os,
-    Str,
-    Table,
-    Utf8,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Index {
     /// index from the top of the stack
     Top(usize),
@@ -142,6 +127,11 @@ impl LuaState {
         }
     }
 
+    #[cfg(feature = "stdlib")]
+    pub fn open_libs(&self) {
+        unsafe { ffi::luaL_openlibs(self.lua_state) }
+    }
+
     pub fn close(self) {}
 
     pub fn pop(&mut self, n: usize) {
@@ -166,10 +156,5 @@ impl LuaState {
 
     pub fn replace(&mut self, idx: Index) {
         unsafe { ffi::lua_replace(self.lua_state, idx.as_absolute()) }
-    }
-
-    /// Load standard libraries
-    pub fn open_libs(&self) {
-        unsafe { ffi::luaL_openlibs(self.lua_state) }
     }
 }

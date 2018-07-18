@@ -1,6 +1,8 @@
 extern crate bindgen;
 extern crate cc;
 
+use bindgen::builder;
+
 fn main() {
     let core = &[
         "lua/lapi.c",
@@ -42,13 +44,18 @@ fn main() {
         "lua/lutf8lib.c",
     ];
 
-    cc::Build::new()
-        .files(core)
-        .files(libs)
-        .file("lua/lauxlib.c")
-        .compile("lua");
-
-    use bindgen::builder;
+    if cfg!(feature = "stdlib") {
+        cc::Build::new()
+            .files(core)
+            .files(libs)
+            .file("lua/lauxlib.c")
+            .compile("lua");
+    } else {
+        cc::Build::new()
+            .files(core)
+            .file("lua/lauxlib.c")
+            .compile("lua");
+    }
 
     let bindings = builder()
         .header("wrapper.h")
