@@ -2,6 +2,8 @@
 
 (WIP) Rust wrapper around the [Lua](https://www.lua.org/) C API.
 
+**[Documentation](https://germangb.github.io/lua-rs/lua/index.html)**
+
 ## Examples
 
 ```bash
