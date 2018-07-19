@@ -4,6 +4,7 @@ pub mod prelude;
 pub mod source;
 pub mod string;
 
+use ffi::AsCStr;
 use error::Error;
 use source::{IntoLuaSource, LuaSource};
 use string::LuaStr;
@@ -244,6 +245,50 @@ impl LuaState {
 
     pub fn replace(&mut self, idx: Index) {
         unsafe { ffi::lua_replace(self.lua_state, idx.as_absolute()) }
+    }
+
+    pub fn remove(&mut self, idx: Index) {
+        unsafe { ffi::lua_remove(self.lua_state, idx.as_absolute()) }
+    }
+
+    pub fn create_table(&mut self, narr: usize, nrec: usize) {
+        unsafe { ffi::lua_createtable(self.lua_state, narr as _, nrec as _) };
+    }
+
+    pub fn set_global<'a, N: 'a>(&mut self, n: &'a N)
+    where
+        N: ?Sized + AsCStr<'a>,
+    {
+        unsafe {
+            let cstr = n.as_cstr();
+            ffi::lua_setglobal(self.lua_state, cstr.as_ptr());
+        }
+    }
+
+    pub fn get_global<'a, N: 'a>(&mut self, n: &'a N)
+    where
+        N: ?Sized + AsCStr<'a>,
+    {
+        unsafe {
+            let cstr = n.as_cstr();
+            ffi::lua_getglobal(self.lua_state, cstr.as_ptr());
+        }
+    }
+
+    pub fn new_table(&mut self) {
+        self.create_table(0, 0);
+    }
+
+    pub fn is_table(&mut self, idx: Index) -> bool {
+        unsafe { ffi::lua_istable(self.lua_state, idx.as_absolute()) }
+    }
+
+    pub fn set_table(&mut self, idx: Index) {
+        unsafe { ffi::lua_settable(self.lua_state, idx.as_absolute()) };
+    }
+
+    pub fn raw_seti(&mut self, idx: Index, i: i64) {
+        unsafe { ffi::lua_rawseti(self.lua_state, idx.as_absolute(), i) };
     }
 }
 

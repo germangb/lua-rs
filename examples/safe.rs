@@ -21,6 +21,9 @@ fn main() {
         state.get_value::<i64>(Index::Top(1)).unwrap()
     );
 
-    state.eval("print(42)").unwrap();
+    state.push_value("Value defined from Rust!");
+    state.set_global("foo");
+
+    state.eval("print('The following value is defined from Rust:', foo)").unwrap();
     state.pop(1);
 }
