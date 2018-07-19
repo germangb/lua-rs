@@ -27,7 +27,10 @@ pub enum Index {
 }
 
 impl Index {
+    /// Top of the stack
     pub const TOP: Index = Index::Top(1);
+
+    /// Bottom of the stack
     pub const BOTTOM: Index = Index::Bottom(1);
 
     #[inline]
@@ -227,10 +230,6 @@ impl LuaState {
     }
 
     /// Convenience method to read string values. This is equivalent to the following:
-    ///
-    /// ```
-    /// let string: LuaStr = state.get_value();
-    /// ```
     pub fn get_string(&self, index: Index) -> Option<LuaStr> {
         self.get_value(index)
     }
