@@ -24,6 +24,8 @@ fn main() {
     state.push_value("Value defined from Rust!");
     state.set_global("foo");
 
-    state.eval("print('The following value is defined from Rust:', foo)").unwrap();
+    state
+        .eval("print('The following value is defined from Rust:', foo)")
+        .unwrap();
     state.pop(1);
 }

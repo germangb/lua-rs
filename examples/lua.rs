@@ -31,8 +31,14 @@ fn main() {
             Err(Error::Syntax) => {
                 if line.trim().is_empty() {
                     eprintln!("Syntax error\n===");
-                    unsafe { 
-                        eprintln!("{}", lua_state.get_string(Index::Top(1)).unwrap().as_str_unchecked());
+                    unsafe {
+                        eprintln!(
+                            "{}",
+                            lua_state
+                                .get_string(Index::Top(1))
+                                .unwrap()
+                                .as_str_unchecked()
+                        );
                     }
                     lua_source.clear();
                 }
@@ -49,8 +55,14 @@ fn main() {
             Ok(_) => {}
             Err(Error::Runtime) => {
                 eprintln!("Ruintime error\n===");
-                unsafe { 
-                    eprintln!("{}", lua_state.get_string(Index::Top(1)).unwrap().as_str_unchecked());
+                unsafe {
+                    eprintln!(
+                        "{}",
+                        lua_state
+                            .get_string(Index::Top(1))
+                            .unwrap()
+                            .as_str_unchecked()
+                    );
                 }
                 lua_state.pop(1);
             }

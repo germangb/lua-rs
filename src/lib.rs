@@ -1,11 +1,11 @@
-pub mod ffi;
 pub mod error;
+pub mod ffi;
 pub mod prelude;
 pub mod source;
 pub mod string;
 
-use ffi::AsCStr;
 use error::Error;
+use ffi::AsCStr;
 use source::{IntoLuaSource, LuaSource};
 use string::LuaStr;
 
@@ -265,15 +265,15 @@ impl LuaState {
         }
     }
 
-    /*pub fn get_global<'a, N: 'a>(&mut self, n: &'a N)
+    pub fn get_global<N>(&mut self, n: N)
     where
-        N: ?Sized + AsCStr<'a>,
+        N: AsCStr,
     {
         unsafe {
             let cstr = n.as_cstr();
             ffi::lua_getglobal(self.lua_state, cstr.as_ptr());
         }
-    }*/
+    }
 
     pub fn new_table(&mut self) {
         self.create_table(0, 0);
