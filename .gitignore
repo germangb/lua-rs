@@ -2,4 +2,4 @@
 **/*.rs.bk
 *.swp
 src/ffi/bindgen.rs
-doc
+.doc
