@@ -19,5 +19,6 @@ EOF
 git init && \
     git remote add origin https://github.com/germangb/lua-rs.git && \
     git checkout -b gh-pages && \
-    git commit -am "📘 Docs!" && \
+    git add -A && \
+    git commit -m "Publish docs" && \
     git push origin gh-pages --force
