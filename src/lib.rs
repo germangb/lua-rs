@@ -25,11 +25,14 @@ pub enum Index {
 }
 
 impl Index {
-    /// Top of the stack
+    /// Top of the stack. Equivalent to `-1`
     pub const TOP: Index = Index::Top(1);
 
-    /// Bottom of the stack
+    /// Bottom of the stack. Equivalent to `1`
     pub const BOTTOM: Index = Index::Bottom(1);
+
+    /// Index of the registry table. Equivalent to `LUA_REGISTRYINDEX`
+    pub const REGITRY: Index = Index::Top(1001000);
 
     #[inline]
     pub fn from_absolute(v: ::std::os::raw::c_int) -> Self {
@@ -164,7 +167,7 @@ impl LuaState {
         T: AsCStr,
     {
         self.load(source)?;
-        self.call_protected(0, 0)?;
+        self.call_protected(ffi::LUA_MULTRET as _, 0)?;
         Ok(())
     }
 

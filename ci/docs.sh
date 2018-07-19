@@ -1,8 +1,9 @@
 #!/bin/bash
 
-DOCS_DIR=.doc/
+DOCS_DIR=.doc
 
 cargo doc
+rm -rf $DOCS_DIR
 mv target/doc $DOCS_DIR
 
 cat docs/index.html << EOF
