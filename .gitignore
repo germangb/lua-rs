@@ -2,3 +2,4 @@
 **/*.rs.bk
 *.swp
 src/ffi/bindgen.rs
+pages
