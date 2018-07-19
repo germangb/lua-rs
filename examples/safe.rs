@@ -1,6 +1,8 @@
 extern crate lua;
 
-use lua::{Index, LuaSource, LuaState};
+use lua::{source::LuaSource, Index, LuaState};
+
+use std::borrow::Cow;
 
 fn main() {
     let mut state = LuaState::new();
@@ -12,7 +14,7 @@ fn main() {
     {
         let value: &str = state.get_value(Index::Top(1)).unwrap();
 
-        println!("value at the top = {}", value);
+        println!("value at the top = {:?}", value);
     }
 
     state.push_value(42);
@@ -21,5 +23,6 @@ fn main() {
         state.get_value::<i64>(Index::Top(1)).unwrap()
     );
 
+    state.eval("print(42)").unwrap();
     state.pop(1);
 }

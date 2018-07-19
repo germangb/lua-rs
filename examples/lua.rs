@@ -3,7 +3,7 @@ extern crate lua;
 use std::io;
 use std::io::Read;
 
-use lua::{Error, Index, LuaSource, LuaState};
+use lua::{error::Error, source::LuaSource, Index, LuaState};
 
 fn main() {
     let mut stdin = io::stdin();
