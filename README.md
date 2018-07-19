@@ -1,5 +1,7 @@
 # Lua rust
 
+[![Build Status](https://travis-ci.org/germangb/lua-rs.svg?branch=master)](https://travis-ci.org/germangb/lua-rs)
+
 (WIP) Rust wrapper around the [Lua](https://www.lua.org/) C API.
 
 **[Documentation](https://germangb.github.io/lua-rs/lua/index.html)**
