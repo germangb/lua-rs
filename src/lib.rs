@@ -1,16 +1,16 @@
-pub mod error;
 pub mod ffi;
+pub mod error;
+pub mod prelude;
 pub mod source;
+pub mod string;
 
 use error::Error;
 use source::{IntoLuaSource, LuaSource};
+use string::LuaStr;
 
-use std::borrow::Cow;
-use std::{slice, str};
-
-use std::path::Path;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -58,45 +58,15 @@ impl Drop for LuaState {
 
 /// Trait to obtain rust types from the stack
 pub trait FromLua<'a>: Sized {
-    unsafe fn from_lua(state: &'a LuaState, index: ::std::os::raw::c_int) -> Option<Self>;
+    /// Attempts to read a value from the stack and returns an optional where `None` means either
+    /// nil or the conversion to the desired type couldn't be made.
+    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self>;
 }
 
 /// Trait to move rust types into the lua stack
 pub trait IntoLua {
-    unsafe fn into_lua(self, state: *mut ffi::lua_State);
-}
-
-/// Trait for types that can be pushed to the stack as strings
-pub trait LuaString {}
-
-impl<'a> LuaString for &'a str {}
-impl<'a> LuaString for &'a String {}
-impl LuaString for String {}
-impl LuaString for Vec<u8> {}
-impl<'a> LuaString for &'a [u8] {}
-
-impl<T> IntoLua for T
-where
-    T: AsRef<[u8]> + LuaString,
-{
-    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
-        let string = self.as_ref();
-        ffi::lua_pushlstring(state, string.as_ptr() as _, string.len() as _);
-    }
-}
-
-impl<'a> FromLua<'a> for &'a str {
-    unsafe fn from_lua(state: &'a LuaState, index: ::std::os::raw::c_int) -> Option<Self> {
-        let mut len = 0;
-
-        let ptr = ffi::lua_tolstring(state.lua_state, index, &mut len);
-        if ptr.is_null() {
-            None
-        } else {
-            let slice = slice::from_raw_parts(ptr as *const u8, len);
-            str::from_utf8(slice).ok()
-        }
-    }
+    /// consumes the value to pushed it into the stack
+    fn into_lua(self, state: &mut LuaState);
 }
 
 macro_rules! impl_numeric {
@@ -106,21 +76,23 @@ macro_rules! impl_numeric {
         $(
             $(
                 impl IntoLua for $type {
-                    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
-                        ffi::$lua_push(state, self as _);
+                    fn into_lua(self, state: &mut LuaState) {
+                        unsafe { ffi::$lua_push(state.lua_state, self as _) };
                     }
                 }
 
                 impl<'a> FromLua<'a> for $type {
-                    unsafe fn from_lua(state: &'a LuaState, index: ::std::os::raw::c_int) -> Option<Self> {
-                        let mut isnum = 0;
+                    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
+                        unsafe {
+                            let mut isnum = 0;
 
-                        let value = ffi::$lua_to(state.lua_state, index, &mut isnum);
+                            let value = ffi::$lua_to(state.lua_state, index.as_absolute(), &mut isnum);
 
-                        if isnum == 0 {
-                            None
-                        } else {
-                            Some(value as $type)
+                            if isnum == 0 {
+                                None
+                            } else {
+                                Some(value as $type)
+                            }
                         }
                     }
                 }
@@ -135,19 +107,21 @@ impl_numeric! {
 }
 
 impl IntoLua for bool {
-    unsafe fn into_lua(self, state: *mut ffi::lua_State) {
-        if self {
-            ffi::lua_pushboolean(state, 1);
-        } else {
-            ffi::lua_pushboolean(state, 0);
+    fn into_lua(self, state: &mut LuaState) {
+        unsafe {
+            if self {
+                ffi::lua_pushboolean(state.lua_state, 1);
+            } else {
+                ffi::lua_pushboolean(state.lua_state, 0);
+            }
         }
     }
 }
 
 impl<'a> FromLua<'a> for bool {
     #[inline]
-    unsafe fn from_lua(state: &'a LuaState, index: ::std::os::raw::c_int) -> Option<Self> {
-        Some(ffi::lua_toboolean(state.lua_state, index) != 0)
+    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
+        unsafe { Some(ffi::lua_toboolean(state.lua_state, index.as_absolute()) != 0) }
     }
 }
 
@@ -158,6 +132,10 @@ impl LuaState {
                 lua_state: ffi::luaL_newstate(),
             }
         }
+    }
+
+    pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
+        LuaState { lua_state: state }
     }
 
     #[cfg(feature = "stdlib")]
@@ -225,14 +203,23 @@ impl LuaState {
     where
         T: IntoLua,
     {
-        unsafe { value.into_lua(self.lua_state) }
+        value.into_lua(self)
     }
 
     pub fn get_value<'a, F>(&'a self, index: Index) -> Option<F>
     where
         F: FromLua<'a>,
     {
-        unsafe { F::from_lua(self, index.as_absolute()) }
+        F::from_lua(self, index)
+    }
+
+    /// Convenience method to read string values. This is equivalent to the following:
+    ///
+    /// ```rust
+    /// let string: LuaStr = state.get_value();
+    /// ```
+    pub fn get_string(&self, index: Index) -> Option<LuaStr> {
+        self.get_value(index)
     }
 
     pub fn push_nil(&mut self) {

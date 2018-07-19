@@ -3,7 +3,7 @@ extern crate lua;
 use std::io;
 use std::io::Read;
 
-use lua::{error::Error, source::LuaSource, Index, LuaState};
+use lua::prelude::*;
 
 fn main() {
     let mut stdin = io::stdin();
@@ -31,7 +31,9 @@ fn main() {
             Err(Error::Syntax) => {
                 if line.trim().is_empty() {
                     eprintln!("Syntax error\n===");
-                    eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
+                    unsafe { 
+                        eprintln!("{}", lua_state.get_string(Index::Top(1)).unwrap().as_str_unchecked());
+                    }
                     lua_source.clear();
                 }
 
@@ -47,7 +49,9 @@ fn main() {
             Ok(_) => {}
             Err(Error::Runtime) => {
                 eprintln!("Ruintime error\n===");
-                eprintln!("{}", lua_state.get_value::<&str>(Index::Top(1)).unwrap());
+                unsafe { 
+                    eprintln!("{}", lua_state.get_string(Index::Top(1)).unwrap().as_str_unchecked());
+                }
                 lua_state.pop(1);
             }
             _ => panic!(),

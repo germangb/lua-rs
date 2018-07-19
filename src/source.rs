@@ -1,8 +1,8 @@
 use Result;
 
-use std::{fmt, str, io};
-use std::path::Path;
 use std::fs::File;
+use std::path::Path;
+use std::{fmt, io, str};
 
 pub trait IntoLuaSource {
     fn into(self) -> LuaSource;

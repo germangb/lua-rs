@@ -1,8 +1,6 @@
 extern crate lua;
 
-use lua::{source::LuaSource, Index, LuaState};
-
-use std::borrow::Cow;
+use lua::prelude::*;
 
 fn main() {
     let mut state = LuaState::new();
@@ -12,9 +10,9 @@ fn main() {
 
     // reading a string borrows the LuaState because the pointer is managed by lua
     {
-        let value: &str = state.get_value(Index::Top(1)).unwrap();
+        let value = state.get_string(Index::Top(1)).unwrap();
 
-        println!("value at the top = {:?}", value);
+        println!("value at the top = {:?}", value.as_str());
     }
 
     state.push_value(42);

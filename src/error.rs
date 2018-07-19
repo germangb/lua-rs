@@ -5,6 +5,9 @@ use std::{fmt, io};
 
 #[derive(Debug)]
 pub enum Error {
+    /// Error during UTF-8 encoding/decoding
+    Utf8,
+    /// Error during IO
     Io(io::Error),
     /// Lua program execution error
     Runtime,
@@ -40,6 +43,7 @@ impl From<io::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Error::Utf8 => write!(f, "UTF-8 error"),
             Error::Io(e) => write!(f, "IO error: {}", e),
             Error::Runtime => write!(f, "Runtime error"),
             Error::Syntax => write!(f, "Syntax error"),
