@@ -255,9 +255,9 @@ impl LuaState {
         unsafe { ffi::lua_createtable(self.lua_state, narr as _, nrec as _) };
     }
 
-    pub fn set_global<'a, N: 'a>(&mut self, n: &'a N)
+    pub fn set_global<N>(&mut self, n: N)
     where
-        N: ?Sized + AsCStr<'a>,
+        N: AsCStr,
     {
         unsafe {
             let cstr = n.as_cstr();
@@ -265,7 +265,7 @@ impl LuaState {
         }
     }
 
-    pub fn get_global<'a, N: 'a>(&mut self, n: &'a N)
+    /*pub fn get_global<'a, N: 'a>(&mut self, n: &'a N)
     where
         N: ?Sized + AsCStr<'a>,
     {
@@ -273,7 +273,7 @@ impl LuaState {
             let cstr = n.as_cstr();
             ffi::lua_getglobal(self.lua_state, cstr.as_ptr());
         }
-    }
+    }*/
 
     pub fn new_table(&mut self) {
         self.create_table(0, 0);
