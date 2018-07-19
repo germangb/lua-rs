@@ -26,6 +26,18 @@ pub enum Index {
 }
 
 impl Index {
+    pub const TOP: Index = Index::Top(1);
+    pub const BOTTOM: Index = Index::Bottom(1);
+
+    #[inline]
+    pub fn from_absolute(v: ::std::os::raw::c_int) -> Self {
+        if v < 0 {
+            Index::Top((-v) as _)
+        } else {
+            Index::Bottom(v as _)
+        }
+    }
+
     #[inline]
     pub fn as_absolute(&self) -> ::std::os::raw::c_int {
         match *self {
@@ -215,7 +227,7 @@ impl LuaState {
 
     /// Convenience method to read string values. This is equivalent to the following:
     ///
-    /// ```rust
+    /// ```
     /// let string: LuaStr = state.get_value();
     /// ```
     pub fn get_string(&self, index: Index) -> Option<LuaStr> {
