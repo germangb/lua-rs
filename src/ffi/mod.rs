@@ -17,11 +17,11 @@ pub trait AsCStr {
 
 impl<T> AsCStr for T
 where
-    T: AsRef<str>,
+    T: AsRef<[u8]>,
 {
     fn as_cstr(&self) -> Cow<CStr> {
         let string = self.as_ref();
-        if let Some(0) = string.as_bytes().last() {
+        if let Some(0) = string.last() {
             unsafe { Cow::Borrowed(CStr::from_ptr(string.as_ptr() as _)) }
         } else {
             Cow::Owned(CString::new(string).unwrap())

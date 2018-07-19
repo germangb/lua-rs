@@ -8,7 +8,7 @@ use lua::prelude::*;
 fn main() {
     let mut stdin = io::stdin();
 
-    let mut lua_source = LuaSource::new();
+    let mut lua_source = String::new();
     let mut lua_state = LuaState::new();
     lua_state.open_libs();
 
@@ -23,7 +23,7 @@ fn main() {
         let mut line = String::new();
         match io::stdin().read_line(&mut line) {
             Err(_) => break,
-            Ok(_) => lua_source.extend(&line),
+            Ok(_) => lua_source.push_str(line.as_str()),
         }
 
         match lua_state.load(&lua_source) {

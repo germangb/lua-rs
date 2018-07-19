@@ -1,12 +1,10 @@
 pub mod error;
 pub mod ffi;
 pub mod prelude;
-pub mod source;
 pub mod string;
 
 use error::Error;
 use ffi::AsCStr;
-use source::{IntoLuaSource, LuaSource};
 use string::LuaStr;
 
 use std::fs::File;
@@ -163,7 +161,7 @@ impl LuaState {
 
     pub fn eval<T>(&mut self, source: T) -> Result<()>
     where
-        T: IntoLuaSource,
+        T: AsCStr,
     {
         self.load(source)?;
         self.call_protected(0, 0)?;
@@ -177,12 +175,13 @@ impl LuaState {
         self.load_from_reader(File::open(path)?)
     }
 
-    pub fn load_from_reader<R>(&mut self, read: R) -> Result<()>
+    pub fn load_from_reader<R>(&mut self, mut read: R) -> Result<()>
     where
         R: Read,
     {
-        let source = LuaSource::from_reader(read)?;
-        self.load(source)
+        let mut data = Vec::new();
+        read.read_to_end(&mut data)?;
+        self.load(data.as_slice())
     }
 
     pub fn call_protected(&mut self, nargs: usize, nresults: usize) -> Result<()> {
@@ -196,10 +195,10 @@ impl LuaState {
 
     pub fn load<T>(&mut self, source: T) -> Result<()>
     where
-        T: IntoLuaSource,
+        T: AsCStr,
     {
         unsafe {
-            let source = source.into();
+            let source = source.as_cstr();
             match ffi::luaL_loadstring(self.lua_state, source.as_ptr() as _) as _ {
                 ffi::LUA_OK => Ok(()),
                 code @ _ => Err(Error::from_lua_result(code as _)),
