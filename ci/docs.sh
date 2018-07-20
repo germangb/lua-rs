@@ -6,7 +6,7 @@ cargo doc
 rm -rf $DOCS_DIR
 mv target/doc $DOCS_DIR
 
-cat docs/index.html << EOF
+cat << EOF > $DOCS_DIR/index.html
 <!DOCTYPE html>
 <html>
 <head>
