@@ -2,6 +2,7 @@ pub mod error;
 pub mod ffi;
 pub mod prelude;
 pub mod string;
+pub mod function;
 
 use error::Error;
 use ffi::AsCStr;
@@ -58,6 +59,7 @@ impl Index {
 /// Type to perform operations over an underlying `lua_State` safely
 #[derive(Debug)]
 pub struct LuaState {
+    owned: bool,
     lua_state: *mut ffi::lua_State,
 }
 
@@ -69,7 +71,9 @@ pub struct LuaGc<'a> {
 
 impl Drop for LuaState {
     fn drop(&mut self) {
-        unsafe { ffi::lua_close(self.lua_state) }
+        if self.owned {
+            unsafe { ffi::lua_close(self.lua_state) }
+        }
     }
 }
 
@@ -146,13 +150,17 @@ impl LuaState {
     pub fn new() -> Self {
         unsafe {
             LuaState {
+                owned: true,
                 lua_state: ffi::luaL_newstate(),
             }
         }
     }
 
     pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
-        LuaState { lua_state: state }
+        LuaState {
+            owned: true,
+            lua_state: state,
+        }
     }
 
     #[cfg(feature = "stdlib")]
@@ -167,7 +175,7 @@ impl LuaState {
         T: AsCStr,
     {
         self.load(source)?;
-        self.call_protected(ffi::LUA_MULTRET as _, 0)?;
+        self.call_protected(0, ffi::LUA_MULTRET as _)?;
         Ok(())
     }
 
@@ -231,7 +239,6 @@ impl LuaState {
         F::from_lua(self, index)
     }
 
-    /// Convenience method to read string values. This is equivalent to the following:
     pub fn get_string(&self, index: Index) -> Option<LuaStr> {
         self.get_value(index)
     }

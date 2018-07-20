@@ -2,29 +2,48 @@ use super::error::Error;
 use super::{ffi, FromLua, Index, IntoLua, LuaState, Result};
 
 use std::{slice, str};
+use std::borrow::Cow;
 
-/// A type that implements LuaString can be pushed into the lua stack
-pub trait LuaString {}
+/// Macro to create a nul terminated string literal.
+///
+/// ```
+/// assert_eq!("hello\0", lua_str!("hello"));
+/// ```
+#[macro_export]
+macro_rules! lua_str {
+    ($line:expr) => { concat!($line, "\0") }
+}
 
-impl<'a> LuaString for &'a str {}
-impl<'a> LuaString for &'a String {}
-impl LuaString for String {}
-impl LuaString for Vec<u8> {}
-impl<'a> LuaString for &'a [u8] {}
-
-impl<T> IntoLua for T
-where
-    T: AsRef<[u8]> + LuaString,
-{
-    fn into_lua(self, state: &mut LuaState) {
-        unsafe {
-            let string = self.as_ref();
-            ffi::lua_pushlstring(state.lua_state, string.as_ptr() as _, string.len() as _);
-        }
+macro_rules! impl_str {
+    ($($type:ty),+) => {
+        $(
+            impl IntoLua for $type {
+                fn into_lua(self, state: &mut LuaState) {
+                    unsafe {
+                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    }
+                }
+            }
+        )+
+    };
+    ($( ref $type:ty ),+) => {
+        $(
+            impl<'a> IntoLua for &'a $type {
+                fn into_lua(self, state: &mut LuaState) {
+                    unsafe {
+                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    }
+                }
+            }
+        )+
     }
 }
 
-/// View into an internal lua String that may contain zero bytes within.
+impl_str! { ref str, ref String }
+impl_str! { String }
+
+/// A view into a lua-owned string. A string in lua may contain zeroed bytes so it will not always
+/// be possible to convert to a `&str`.
 #[derive(Debug)]
 pub struct LuaStr<'a> {
     state: &'a LuaState,
@@ -52,6 +71,8 @@ impl<'a> FromLua<'a> for LuaStr<'a> {
 }
 
 impl<'a> LuaStr<'a> {
+    /// If the string contains valid UTF-8 text, returns a `&str`. If not, returns an
+    /// `Error::Utf8`
     pub fn as_str(&self) -> Result<&str> {
         unsafe {
             let bytes = slice::from_raw_parts(self.ptr as *const u8, self.length);
@@ -63,6 +84,19 @@ impl<'a> LuaStr<'a> {
         }
     }
 
+    /// Converts data into a valid UTF-8 string using `String::from_utf8_lossy`, which turns any
+    /// non-utf8 bytes into characters that look like this: �
+    pub fn into_str_lossy(&self) -> Cow<str> {
+        unsafe {
+            let bytes = slice::from_raw_parts(self.ptr as *const u8, self.length);
+            String::from_utf8_lossy(bytes)
+        }
+    }
+
+    /// Reads the data as a `&str`
+    ///
+    /// # Panics
+    /// When the string is not utf-8
     pub unsafe fn as_str_unchecked(&self) -> &str {
         let bytes = slice::from_raw_parts(self.ptr as *const u8, self.length);
         str::from_utf8_unchecked(bytes)
