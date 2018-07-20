@@ -88,7 +88,7 @@ pub trait FromLua<'a>: Sized {
 /// Trait to move rust types into the lua stack
 pub trait IntoLua {
     /// consumes the value to pushed it into the stack
-    fn into_lua(self, state: &mut LuaState);
+    fn into_lua(&self, state: &mut LuaState);
 }
 
 /// A trait to implement functions that can be called from lua
@@ -98,13 +98,13 @@ pub trait LuaFunction {
 
 macro_rules! impl_numeric {
     (
-        $( ( $( $type:ty ),+ ) => $lua_push:ident, $lua_to:ident )+
+        $( ( $( $type:ty , )+ ) => $lua_push:ident, $lua_to:ident )+
     ) => {
         $(
             $(
                 impl IntoLua for $type {
-                    fn into_lua(self, state: &mut LuaState) {
-                        unsafe { ffi::$lua_push(state.lua_state, self as _) };
+                    fn into_lua(&self, state: &mut LuaState) {
+                        unsafe { ffi::$lua_push(state.lua_state, *self as _) };
                     }
                 }
 
@@ -132,7 +132,7 @@ macro_rules! impl_str {
     ($($type:ty),+) => {
         $(
             impl IntoLua for $type {
-                fn into_lua(self, state: &mut LuaState) {
+                fn into_lua(&self, state: &mut LuaState) {
                     unsafe {
                         ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
                     }
@@ -143,7 +143,7 @@ macro_rules! impl_str {
     ($( ref $type:ty ),+) => {
         $(
             impl<'a> IntoLua for &'a $type {
-                fn into_lua(self, state: &mut LuaState) {
+                fn into_lua(&self, state: &mut LuaState) {
                     unsafe {
                         ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
                     }
@@ -153,18 +153,23 @@ macro_rules! impl_str {
     }
 }
 
-impl_numeric! {
-    (f64, f32) => lua_pushnumber, lua_tonumberx
-    (i64, i32, i16, i8) => lua_pushinteger, lua_tointegerx
+macro_rules! impl_num {
+    ( $( $type:ty ),+ ) => { impl_numeric!{ ( $( $type , )+ ) => lua_pushnumber, lua_tonumberx } }
 }
 
+macro_rules! impl_int {
+    ( $( $type:ty ),+ ) => { impl_numeric!{ ( $( $type , )+ ) => lua_pushinteger, lua_tointegerx } }
+}
+
+impl_num! { f64, f32 }
+impl_int! { i64, i32, i16, i8, u64, u32, u16, u8 }
 impl_str! { ref str, ref String }
 impl_str! { String }
 
 impl IntoLua for bool {
-    fn into_lua(self, state: &mut LuaState) {
+    fn into_lua(&self, state: &mut LuaState) {
         unsafe {
-            if self {
+            if *self {
                 ffi::lua_pushboolean(state.lua_state, 1);
             } else {
                 ffi::lua_pushboolean(state.lua_state, 0);
@@ -184,7 +189,7 @@ impl<F> IntoLua for F
 where
     F: LuaFunction,
 {
-    fn into_lua(self, state: &mut LuaState) {
+    fn into_lua(&self, state: &mut LuaState) {
         unsafe {
             ffi::lua_pushcfunction(state.lua_state, Some(function::<F>));
 

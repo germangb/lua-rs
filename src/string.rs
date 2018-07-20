@@ -4,34 +4,6 @@ use super::{ffi, FromLua, Index, IntoLua, LuaState, Result};
 use std::borrow::Cow;
 use std::{slice, str};
 
-macro_rules! impl_str {
-    ($($type:ty),+) => {
-        $(
-            impl IntoLua for $type {
-                fn into_lua(self, state: &mut LuaState) {
-                    unsafe {
-                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
-                    }
-                }
-            }
-        )+
-    };
-    ($( ref $type:ty ),+) => {
-        $(
-            impl<'a> IntoLua for &'a $type {
-                fn into_lua(self, state: &mut LuaState) {
-                    unsafe {
-                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
-                    }
-                }
-            }
-        )+
-    }
-}
-
-//impl_str! { ref str, ref String }
-//impl_str! { String }
-
 /// A view into a lua-owned string. A string in lua may contain zeroed bytes so it will not always
 /// be possible to convert to a `&str`.
 #[derive(Debug)]
