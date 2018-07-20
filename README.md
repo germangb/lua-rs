@@ -35,29 +35,25 @@ extern crate lua;
 
 use lua::prelude::*;
 
-// A type associated with the function
-struct MyFunction;
+struct FooFun;
 
-impl LuaFunction for MyFunction {
-    type Output = (&'static str);
-
-    fn call(state: &LuaState) -> Self::Output {
-        // return a single string literal
-        ("3.14159264")
+impl LuaFunction for FooFun {
+    fn call(state: &mut LuaState) -> Result<usize, ()> {
+        state.push_value("hello");
+        Ok(1)
     }
 }
 
 let mut state = LuaState::new();
+state.open_libs();
 
-state.push_value(MyFunction);
-state.push_value("foo");
+// push functions
+state.push_value(FooFun);
+state.set_global("dummy");
 
-// evaluate
-state.eval("n = foo()").unwrap();
-
-// read result
-state.get_global("n");
-println!("n = {}", state.get_value::<f64>(Index::TOP));
+// run rust functions
+state.eval("bar = dummy()").unwrap();
+state.eval("print(bar)");
 ```
 
 ### Working with the stack

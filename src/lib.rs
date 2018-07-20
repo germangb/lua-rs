@@ -1,6 +1,5 @@
 pub mod error;
 pub mod ffi;
-pub mod function;
 pub mod macros;
 pub mod prelude;
 pub mod string;
@@ -12,6 +11,7 @@ use string::LuaStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::{slice, str};
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -91,6 +91,11 @@ pub trait IntoLua {
     fn into_lua(self, state: &mut LuaState);
 }
 
+/// A trait to implement functions that can be called from lua
+pub trait LuaFunction {
+    fn call(state: &mut LuaState) -> ::std::result::Result<usize, ()>;
+}
+
 macro_rules! impl_numeric {
     (
         $( ( $( $type:ty ),+ ) => $lua_push:ident, $lua_to:ident )+
@@ -123,10 +128,38 @@ macro_rules! impl_numeric {
     }
 }
 
+macro_rules! impl_str {
+    ($($type:ty),+) => {
+        $(
+            impl IntoLua for $type {
+                fn into_lua(self, state: &mut LuaState) {
+                    unsafe {
+                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    }
+                }
+            }
+        )+
+    };
+    ($( ref $type:ty ),+) => {
+        $(
+            impl<'a> IntoLua for &'a $type {
+                fn into_lua(self, state: &mut LuaState) {
+                    unsafe {
+                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    }
+                }
+            }
+        )+
+    }
+}
+
 impl_numeric! {
     (f64, f32) => lua_pushnumber, lua_tonumberx
     (i64, i32, i16, i8) => lua_pushinteger, lua_tointegerx
 }
+
+impl_str! { ref str, ref String }
+impl_str! { String }
 
 impl IntoLua for bool {
     fn into_lua(self, state: &mut LuaState) {
@@ -144,6 +177,29 @@ impl<'a> FromLua<'a> for bool {
     #[inline]
     fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
         unsafe { Some(ffi::lua_toboolean(state.lua_state, index.as_absolute()) != 0) }
+    }
+}
+
+impl<F> IntoLua for F
+where
+    F: LuaFunction,
+{
+    fn into_lua(self, state: &mut LuaState) {
+        unsafe {
+            ffi::lua_pushcfunction(state.lua_state, Some(function::<F>));
+
+            extern "C" fn function<F>(state: *mut ffi::lua_State) -> ::std::os::raw::c_int
+            where
+                F: LuaFunction,
+            {
+                let mut state = LuaState {
+                    owned: false,
+                    lua_state: state,
+                };
+
+                F::call(&mut state).unwrap() as _
+            }
+        }
     }
 }
 

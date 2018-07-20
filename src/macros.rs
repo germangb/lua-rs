@@ -9,8 +9,3 @@ macro_rules! lua_str {
         concat!($line, "\0")
     };
 }
-
-#[macro_export]
-macro_rules! lua_function {
-    () => {};
-}

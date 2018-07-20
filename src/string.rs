@@ -29,8 +29,8 @@ macro_rules! impl_str {
     }
 }
 
-impl_str! { ref str, ref String }
-impl_str! { String }
+//impl_str! { ref str, ref String }
+//impl_str! { String }
 
 /// A view into a lua-owned string. A string in lua may contain zeroed bytes so it will not always
 /// be possible to convert to a `&str`.
