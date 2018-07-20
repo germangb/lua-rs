@@ -1,8 +1,9 @@
 pub mod error;
 pub mod ffi;
+pub mod function;
+pub mod macros;
 pub mod prelude;
 pub mod string;
-pub mod function;
 
 use error::Error;
 use ffi::AsCStr;

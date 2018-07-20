@@ -1,18 +1,8 @@
 use super::error::Error;
 use super::{ffi, FromLua, Index, IntoLua, LuaState, Result};
 
-use std::{slice, str};
 use std::borrow::Cow;
-
-/// Macro to create a nul terminated string literal.
-///
-/// ```
-/// assert_eq!("hello\0", lua_str!("hello"));
-/// ```
-#[macro_export]
-macro_rules! lua_str {
-    ($line:expr) => { concat!($line, "\0") }
-}
+use std::{slice, str};
 
 macro_rules! impl_str {
     ($($type:ty),+) => {

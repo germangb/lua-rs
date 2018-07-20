@@ -23,17 +23,41 @@ use lua::prelude::*;
 let mut state = LuaState::new();
 state.open_libs();
 
-// define global from rust
-state.push_value(42);
-state.set_global("foo");
-
-state.eval("print(foo)").unwrap();
-
-// define global from lua
 state.eval("bar = 2.3").unwrap();
-
 state.get_global("bar");
 println!("bar = {}", state.get_value::<f64>(Index::TOP).unwrap());
+```
+
+### Call Rust functions from Lua
+
+```rust
+extern crate lua;
+
+use lua::prelude::*;
+
+// A type associated with the function
+struct MyFunction;
+
+impl LuaFunction for MyFunction {
+    type Output = (&'static str);
+
+    fn call(state: &LuaState) -> Self::Output {
+        // return a single string literal
+        ("3.14159264")
+    }
+}
+
+let mut state = LuaState::new();
+
+state.push_value(MyFunction);
+state.push_value("foo");
+
+// evaluate
+state.eval("n = foo()").unwrap();
+
+// read result
+state.get_global("n");
+println!("n = {}", state.get_value::<f64>(Index::TOP));
 ```
 
 ### Working with the stack
