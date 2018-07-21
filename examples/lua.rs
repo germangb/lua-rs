@@ -2,7 +2,7 @@ extern crate lua;
 
 use lua::prelude::*;
 
-use std::io;
+use std::{fs, io, env};
 
 /// Lua library implemented in Rust
 mod lib;
@@ -15,6 +15,11 @@ fn main() {
 
     state.open_libs();
     lib::load(&mut state);
+
+    // load program
+    if let Some(file) = env::args().nth(1) {
+        state.eval(fs::read(file).unwrap()).unwrap();
+    }
 
     display_splash();
 
@@ -47,8 +52,7 @@ fn main() {
 }
 
 fn display_splash() {
-    println!();
-    eprintln!("# Lua shell");
+    eprintln!("# Welcome to the Lua shell! (written in Rust)");
     eprintln!();
     eprintln!("The following Rust functions can be called from the shell:");
     eprintln!("  * rust.error() - Raises a runtime error. The error message is also formatted in rust");

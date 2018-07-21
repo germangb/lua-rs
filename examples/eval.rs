@@ -12,7 +12,7 @@ mod math {
         type Error = Error;
 
         fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-            state.push_value(0.0);
+            state.push_value(0.0)?;
             Ok(1)
         }
     }
@@ -26,7 +26,7 @@ mod math {
             let _ = state.get_value::<LuaStr>(Index::Arg(1))?;
             let _ = state.get_value::<Nil>(Index::Arg(2))?;
             let _ = state.get_value::<bool>(Index::Arg(3))?;
-            state.push_value(1.0);
+            state.push_value(1.0)?;
             Ok(1)
         }
     }
@@ -38,7 +38,7 @@ impl LuaFn for FooFun {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        state.push_value("hello");
+        state.push_value("hello")?;
 
         // crashes
         //let _ = state.get_value::<Nil>(Index::Arg(3))?;
@@ -51,10 +51,10 @@ fn main() {
     state.open_libs();
 
     // push functions
-    state.push_value(FooFun);
+    state.push_value(FooFun).unwrap();
     state.set_global("dummy");
 
     // run rust functions
     state.eval("bar = dummy()").unwrap();
-    state.eval("print(bar)");
+    state.eval("print(bar)").unwrap();
 }

@@ -21,26 +21,38 @@ pub fn load(state: &mut LuaState) {
 
 impl LuaFn for FnError {
     type Error = &'static str;
+
     fn call(_: &mut LuaState) -> Result<usize, Self::Error> {
         Err("This is a rust runtime error")
     }
 }
 
+impl FnAdd {
+    fn add(a: i32, b: i32) -> i32 {
+        a+b
+    }
+}
+
 impl LuaFn for FnAdd {
     type Error = Error;
+
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        let a: i32 = state.get_value(Index::Arg(1))?;
-        let b: i32 = state.get_value(Index::Arg(2))?;
-        state.push_value(a + b);
+        let a = state.get_value(Index::Arg(1))?;
+        let b = state.get_value(Index::Arg(2))?;
+
+        let (a, b) = state.get_value(Index::BOTTOM)?;
+
+        state.push_value(Self::add(a, b));
         Ok(1)
     }
 }
 
 impl LuaFn for FnLen {
     type Error = Error;
+
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        let len = state.get_string(Index::Arg(1))
-            .map(|s| s.as_slice().len());
+        let len = state.get_string(Index::Arg(1)).map(|s| s.len());
+
         state.push_value(len?);
         Ok(1)
     }
