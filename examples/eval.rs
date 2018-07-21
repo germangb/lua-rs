@@ -20,6 +20,7 @@ mod math {
     impl LuaFn for CosFn {
         type Error = Error;
 
+        // this function generates a runtime error
         fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
             let _ = state.get_value::<f64>(Index::Arg(0))?;
             let _ = state.get_value::<LuaStr>(Index::Arg(1))?;

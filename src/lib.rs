@@ -100,7 +100,7 @@ pub trait IntoLua {
 
 /// A trait to implement functions that can be called from lua
 pub trait LuaFn {
-    type Error: ::std::fmt::Debug;
+    type Error;
     fn call(state: &mut LuaState) -> ::std::result::Result<usize, Self::Error>;
 }
 
@@ -224,24 +224,33 @@ impl<'a> FromLua<'a> for bool {
     }
 }
 
-impl<F> IntoLua for F
+impl<F, E> IntoLua for F
 where
-    F: LuaFn,
+    E: ::std::fmt::Display,
+    F: LuaFn<Error = E>,
 {
     fn into_lua(&self, state: &mut LuaState) {
         unsafe {
-            ffi::lua_pushcfunction(state.lua_state, Some(function::<F>));
+            ffi::lua_pushcfunction(state.lua_state, Some(function::<F, E>));
 
-            extern "C" fn function<F>(state: *mut ffi::lua_State) -> ::std::os::raw::c_int
+            extern "C" fn function<F, E>(state: *mut ffi::lua_State) -> ::std::os::raw::c_int
             where
-                F: LuaFn,
+                E: ::std::fmt::Display,
+                F: LuaFn<Error = E>,
             {
-                let mut state = LuaState {
+                let mut lua_state = LuaState {
                     owned: false,
                     lua_state: state,
                 };
 
-                F::call(&mut state).unwrap() as _
+                match F::call(&mut lua_state) {
+                    Ok(n) => n as _,
+                    Err(e) => unsafe {
+                        lua_state.push_value(format!("{}", e));
+                        ffi::lua_error(state);
+                        unreachable!()
+                    },
+                }
             }
         }
     }
