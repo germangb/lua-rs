@@ -2,11 +2,13 @@ extern crate lua;
 
 use lua::prelude::*;
 
+use std::io;
+
 /// Lua library implemented in Rust
 mod lib;
 
 fn main() {
-    let mut stdin = std::io::stdin();
+    let mut stdin = io::stdin();
     let mut source = String::new();
 
     let mut state = LuaState::new();
@@ -17,7 +19,7 @@ fn main() {
     display_splash();
 
     loop {
-        let read = read_line(&mut source) - 1;
+        let read = read_line(&mut stdin, &mut source) - 1;
 
         match state.load(&source) {
             Ok(_) => source.clear(),
@@ -55,7 +57,7 @@ fn display_splash() {
     eprintln!();
 }
 
-fn read_line(source: &mut String) -> usize {
+fn read_line(stdin: &mut io::Stdin, source: &mut String) -> usize {
     if source.is_empty() {
         eprint!("lua> ");
     } else {
@@ -63,7 +65,7 @@ fn read_line(source: &mut String) -> usize {
     }
 
     let mut line = String::new();
-    match io::stdin().read_line(&mut line) {
+    match stdin.read_line(&mut line) {
         Ok(b) => {
             source.push_str(line.as_str());
             b
