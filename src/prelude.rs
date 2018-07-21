@@ -1,3 +1,3 @@
 pub use super::{
-    error::Error, string::LuaStr, FromLua, Index, IntoLua, LuaFunction, LuaGc, LuaState,
+    error::Error, string::LuaStr, FromLua, Index, IntoLua, LuaFn, LuaGc, LuaState, Nil,
 };

@@ -2,11 +2,45 @@ extern crate lua;
 
 use lua::prelude::*;
 
+mod math {
+    use *;
+
+    pub struct SinFn;
+    pub struct CosFn;
+
+    impl LuaFn for SinFn {
+        type Error = Error;
+
+        fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+            state.push_value(0.0);
+            Ok(1)
+        }
+    }
+
+    impl LuaFn for CosFn {
+        type Error = Error;
+
+        fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+            let _ = state.get_value::<f64>(Index::Arg(0))?;
+            let _ = state.get_value::<LuaStr>(Index::Arg(1))?;
+            let _ = state.get_value::<Nil>(Index::Arg(2))?;
+            let _ = state.get_value::<bool>(Index::Arg(3))?;
+            state.push_value(1.0);
+            Ok(1)
+        }
+    }
+}
+
 struct FooFun;
 
-impl LuaFunction for FooFun {
-    fn call(state: &mut LuaState) -> Result<usize, ()> {
+impl LuaFn for FooFun {
+    type Error = Error;
+
+    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
         state.push_value("hello");
+
+        // crashes
+        //let _ = state.get_value::<Nil>(Index::Arg(3))?;
         Ok(1)
     }
 }

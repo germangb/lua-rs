@@ -14,15 +14,15 @@ pub struct LuaStr<'a> {
 }
 
 impl<'a> FromLua<'a> for LuaStr<'a> {
-    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
+    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
         unsafe {
             let mut len = 0;
 
             let ptr = ffi::lua_tolstring(state.lua_state, index.as_absolute(), &mut len);
             if ptr.is_null() {
-                None
+                Err(Error::Type)
             } else {
-                Some(LuaStr {
+                Ok(LuaStr {
                     state,
                     ptr,
                     length: len,

@@ -11,10 +11,13 @@ use string::LuaStr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::{slice, str};
+use std::str;
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
+
+/// A value that represents nothing
+pub type Nil = ();
 
 /// Used to index the lua stack relative to the Bottom and the Top positions
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -24,6 +27,9 @@ pub enum Index {
 
     /// index from the bottom of the stack
     Bottom(usize),
+
+    /// Index function arguments. Equivalent to using `Bottom`
+    Arg(usize),
 }
 
 impl Index {
@@ -53,6 +59,7 @@ impl Index {
                 -idx
             }
             Index::Bottom(i) => i as _,
+            Index::Arg(i) => i as _,
         }
     }
 }
@@ -82,7 +89,7 @@ impl Drop for LuaState {
 pub trait FromLua<'a>: Sized {
     /// Attempts to read a value from the stack and returns an optional where `None` means either
     /// nil or the conversion to the desired type couldn't be made.
-    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self>;
+    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self>;
 }
 
 /// Trait to move rust types into the lua stack
@@ -92,8 +99,9 @@ pub trait IntoLua {
 }
 
 /// A trait to implement functions that can be called from lua
-pub trait LuaFunction {
-    fn call(state: &mut LuaState) -> ::std::result::Result<usize, ()>;
+pub trait LuaFn {
+    type Error: ::std::fmt::Debug;
+    fn call(state: &mut LuaState) -> ::std::result::Result<usize, Self::Error>;
 }
 
 macro_rules! impl_numeric {
@@ -109,16 +117,16 @@ macro_rules! impl_numeric {
                 }
 
                 impl<'a> FromLua<'a> for $type {
-                    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
+                    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
                         unsafe {
                             let mut isnum = 0;
 
                             let value = ffi::$lua_to(state.lua_state, index.as_absolute(), &mut isnum);
 
                             if isnum == 0 {
-                                None
+                                Err(Error::Type)
                             } else {
-                                Some(value as $type)
+                                Ok(value as $type)
                             }
                         }
                     }
@@ -178,16 +186,47 @@ impl IntoLua for bool {
     }
 }
 
+impl IntoLua for Nil {
+    #[inline]
+    fn into_lua(&self, state: &mut LuaState) {
+        state.push_nil()
+    }
+}
+
+impl<'a> FromLua<'a> for Nil {
+    #[inline]
+    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
+        if state.is_nil(index) {
+            Ok(())
+        } else {
+            Err(Error::Type)
+        }
+    }
+}
+
+impl<T> IntoLua for Option<T>
+where
+    T: IntoLua,
+{
+    fn into_lua(&self, state: &mut LuaState) {
+        if let Some(ref v) = *self {
+            v.into_lua(state);
+        } else {
+            state.push_nil();
+        }
+    }
+}
+
 impl<'a> FromLua<'a> for bool {
     #[inline]
-    fn from_lua(state: &'a LuaState, index: Index) -> Option<Self> {
-        unsafe { Some(ffi::lua_toboolean(state.lua_state, index.as_absolute()) != 0) }
+    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
+        unsafe { Ok(ffi::lua_toboolean(state.lua_state, index.as_absolute()) != 0) }
     }
 }
 
 impl<F> IntoLua for F
 where
-    F: LuaFunction,
+    F: LuaFn,
 {
     fn into_lua(&self, state: &mut LuaState) {
         unsafe {
@@ -195,7 +234,7 @@ where
 
             extern "C" fn function<F>(state: *mut ffi::lua_State) -> ::std::os::raw::c_int
             where
-                F: LuaFunction,
+                F: LuaFn,
             {
                 let mut state = LuaState {
                     owned: false,
@@ -294,14 +333,14 @@ impl LuaState {
         value.into_lua(self)
     }
 
-    pub fn get_value<'a, F>(&'a self, index: Index) -> Option<F>
+    pub fn get_value<'a, F>(&'a self, index: Index) -> Result<F>
     where
         F: FromLua<'a>,
     {
         F::from_lua(self, index)
     }
 
-    pub fn get_string(&self, index: Index) -> Option<LuaStr> {
+    pub fn get_string(&self, index: Index) -> Result<LuaStr> {
         self.get_value(index)
     }
 

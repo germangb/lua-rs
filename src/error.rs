@@ -17,6 +17,8 @@ pub enum Error {
     Memory,
     /// Garbage collector error
     Gc,
+    /// Type error
+    Type,
     /// Some unknown error
     Unknown,
 }
@@ -49,6 +51,7 @@ impl fmt::Display for Error {
             Error::Syntax => write!(f, "Syntax error"),
             Error::Memory => write!(f, "Memory error"),
             Error::Gc => write!(f, "Garbade collector error"),
+            Error::Type => write!(f, "Type error"),
             Error::Unknown => write!(f, "Unknown error"),
         }
     }
