@@ -16,8 +16,13 @@ use std::str;
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-/// A value that represents nothing
-pub type Nil = ();
+/// Type that represents a lua nil
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Nil;
+
+/// Type to represent a generic lua table. NOT a specific one.
+#[derive(Debug, Copy, Clone)]
+pub struct Table;
 
 /// Used to index the lua stack relative to the Bottom and the Top positions
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -95,7 +100,7 @@ pub trait FromLua<'a>: Sized {
 /// Trait to move rust types into the lua stack
 pub trait IntoLua {
     /// consumes the value to pushed it into the stack
-    fn into_lua(&self, state: &mut LuaState);
+    fn into_lua(&self, state: &mut LuaState) -> Result<()>;
 }
 
 /// A trait to implement functions that can be called from lua
@@ -111,8 +116,15 @@ macro_rules! impl_numeric {
     ) => {
         $(
             $(impl IntoLua for $type {
-                fn into_lua(&self, state: &mut LuaState) {
-                    unsafe { ffi::$lua_push(state.lua_state, *self as _) };
+                fn into_lua(&self, state: &mut LuaState) -> Result<()> {
+                    unsafe {
+                        if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                            Err(Error::Memory)
+                        } else {
+                            ffi::$lua_push(state.lua_state, *self as _);
+                            Ok(())
+                        }
+                    }
                 }
             })+
 
@@ -131,8 +143,15 @@ macro_rules! impl_numeric {
 
 macro_rules! impl_str {
     () => {
-        fn into_lua(&self, state: &mut LuaState) {
-            unsafe { ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _) };
+        fn into_lua(&self, state: &mut LuaState) -> Result<()> {
+            unsafe {
+                if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                    Err(Error::Memory)
+                } else {
+                    ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    Ok(())
+                }
+            }
         }
     };
     ($($type:ty),+) => {
@@ -141,7 +160,7 @@ macro_rules! impl_str {
         })+
     };
     ($( ref $type:ty ),+) => {
-        $(impl<'a> IntoLua for &'a $type {
+        $(impl<'a> IntoLua for $type {
             impl_str!();
         })+
     }
@@ -157,25 +176,52 @@ macro_rules! impl_int {
 
 impl_num! { f64, f32 }
 impl_int! { i64, i32, i16, i8, u64, u32, u16, u8, usize, isize }
-impl_str! { ref str, ref String }
+impl_str! { ref &'a str, ref &'a String, ref LuaStr<'a> }
 impl_str! { String }
 
 impl IntoLua for bool {
-    fn into_lua(&self, state: &mut LuaState) {
+    fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
+            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                return Err(Error::Memory)
+            }
+
             if *self {
                 ffi::lua_pushboolean(state.lua_state, 1);
             } else {
                 ffi::lua_pushboolean(state.lua_state, 0);
             }
+
+            Ok(())
         }
     }
 }
 
 impl IntoLua for Nil {
     #[inline]
-    fn into_lua(&self, state: &mut LuaState) {
-        state.push_nil()
+    fn into_lua(&self, state: &mut LuaState) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_pushnil(state.lua_state);
+                Ok(())
+            }
+        }
+    }
+}
+
+impl IntoLua for Table {
+    #[inline]
+    fn into_lua(&self, state: &mut LuaState) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_createtable(state.lua_state, 0, 0);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -183,7 +229,18 @@ impl<'a> FromLua<'a> for Nil {
     #[inline]
     fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
         if state.is_nil(index) {
-            Ok(())
+            Ok(Nil)
+        } else {
+            Err(Error::Type)
+        }
+    }
+}
+
+impl<'a> FromLua<'a> for Table {
+    #[inline]
+    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
+        if state.is_table(index) {
+            Ok(Table)
         } else {
             Err(Error::Type)
         }
@@ -194,11 +251,17 @@ impl<T> IntoLua for Option<T>
 where
     T: IntoLua,
 {
-    fn into_lua(&self, state: &mut LuaState) {
-        if let Some(ref v) = *self {
-            v.into_lua(state);
-        } else {
-            state.push_nil();
+    fn into_lua(&self, state: &mut LuaState) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                return Err(Error::Memory)
+            }
+
+            if let Some(ref v) = *self {
+                v.into_lua(state)
+            } else {
+                state.push_nil()
+            }
         }
     }
 }
@@ -215,9 +278,14 @@ where
     E: ::std::fmt::Display,
     F: LuaFn<Error = E>,
 {
-    fn into_lua(&self, state: &mut LuaState) {
+    fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            ffi::lua_pushcfunction(state.lua_state, Some(function::<F, E>));
+            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                return Err(Error::Memory)
+            } else {
+                ffi::lua_pushcfunction(state.lua_state, Some(function::<F, E>));
+                return Ok(())
+            }
 
             extern "C" fn function<F, E>(state: *mut ffi::lua_State) -> ::std::os::raw::c_int
             where
@@ -232,7 +300,8 @@ where
                 match F::call(&mut lua_state) {
                     Ok(n) => n as _,
                     Err(e) => unsafe {
-                        lua_state.push_value(format!("{}", e));
+                        // TODO unwrap
+                        lua_state.push_value(format!("{}", e)).unwrap();
                         ffi::lua_error(state);
                         unreachable!()
                     },
@@ -324,7 +393,7 @@ impl LuaState {
         LuaGc { state: self }
     }
 
-    pub fn push_value<T>(&mut self, value: T)
+    pub fn push_value<T>(&mut self, value: T) -> Result<()>
     where
         T: IntoLua,
     {
@@ -342,8 +411,8 @@ impl LuaState {
         self.get_value(index)
     }
 
-    pub fn push_nil(&mut self) {
-        unsafe { ffi::lua_pushnil(self.lua_state) }
+    pub fn push_nil(&mut self) -> Result<()> {
+        self.push_value(Nil)
     }
 
     pub fn is_nil(&self, idx: Index) -> bool {
@@ -358,8 +427,8 @@ impl LuaState {
         unsafe { ffi::lua_remove(self.lua_state, idx.as_absolute()) }
     }
 
-    pub fn create_table(&mut self, narr: usize, nrec: usize) {
-        unsafe { ffi::lua_createtable(self.lua_state, narr as _, nrec as _) };
+    pub fn create_table(&mut self, narr: usize, nrec: usize) -> Result<()> {
+        self.push_value(Table)
     }
 
     pub fn set_global<N>(&mut self, n: N)
@@ -386,7 +455,7 @@ impl LuaState {
         self.create_table(0, 0);
     }
 
-    pub fn is_table(&mut self, idx: Index) -> bool {
+    pub fn is_table(&self, idx: Index) -> bool {
         unsafe { ffi::lua_istable(self.lua_state, idx.as_absolute()) }
     }
 

@@ -31,6 +31,14 @@ impl<'a> FromLua<'a> for LuaStr<'a> {
 }
 
 impl<'a> LuaStr<'a> {
+    pub fn as_ptr(&self) -> *const u8 {
+        self.ptr as _
+    }
+    
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
     /// Returns this LuaStr as a UTF-8 string slice, if it cans.
     pub fn as_str(&self) -> Result<&str> {
         unsafe {
