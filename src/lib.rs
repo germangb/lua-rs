@@ -326,6 +326,7 @@ impl LuaState {
         self.lua_state
     }
 
+    #[inline]
     pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
         LuaState {
             owned: true,
@@ -385,14 +386,17 @@ impl LuaState {
         }
     }
 
+    #[inline]
     pub fn pop(&mut self, n: usize) {
         unsafe { ffi::lua_pop(self.lua_state, n as _) }
     }
 
+    #[inline]
     pub fn gc(&self) -> LuaGc {
         LuaGc { state: self }
     }
 
+    #[inline]
     pub fn push_value<T>(&mut self, value: T) -> Result<()>
     where
         T: IntoLua,
@@ -400,6 +404,7 @@ impl LuaState {
         value.into_lua(self)
     }
 
+    #[inline]
     pub fn get_value<'a, F>(&'a self, index: Index) -> Result<F>
     where
         F: FromLua<'a>,
@@ -407,10 +412,12 @@ impl LuaState {
         F::from_lua(self, index)
     }
 
+    #[inline]
     pub fn get_string(&self, index: Index) -> Result<LuaStr> {
         self.get_value(index)
     }
 
+    #[inline]
     pub fn push_nil(&mut self) -> Result<()> {
         self.push_value(Nil)
     }
@@ -419,18 +426,52 @@ impl LuaState {
         unsafe { ffi::lua_isnil(self.lua_state, idx.as_absolute()) }
     }
 
+    #[inline]
+    pub fn is_number(&self, idx: Index) -> bool {
+        unsafe { ffi::lua_isnumber(self.lua_state, idx.as_absolute()) != 0 }
+    }
+
+    #[inline]
+    pub fn is_integer(&self, idx: Index) -> bool {
+        unsafe { ffi::lua_isinteger(self.lua_state, idx.as_absolute()) != 0 }
+    }
+
+    #[inline]
+    pub fn is_string(&self, idx: Index) -> bool {
+        unsafe { ffi::lua_isstring(self.lua_state, idx.as_absolute()) != 0 }
+    }
+
+    #[inline]
+    pub fn insert(&mut self, idx: Index) {
+        unsafe { ffi::lua_insert(self.lua_state, idx.as_absolute()) }
+    }
+
+    #[inline]
     pub fn replace(&mut self, idx: Index) {
         unsafe { ffi::lua_replace(self.lua_state, idx.as_absolute()) }
     }
 
+    #[inline]
     pub fn remove(&mut self, idx: Index) {
         unsafe { ffi::lua_remove(self.lua_state, idx.as_absolute()) }
     }
 
+    #[inline]
     pub fn create_table(&mut self, narr: usize, nrec: usize) -> Result<()> {
         self.push_value(Table)
     }
 
+    #[inline]
+    pub fn raw_len(&self, idx: Index) -> usize {
+        unsafe { ffi::lua_rawlen(self.lua_state, idx.as_absolute()) }
+    }
+
+    #[inline]
+    pub fn stack_size(&self) -> usize {
+        unsafe { ffi::lua_gettop(self.lua_state) as _ }
+    }
+
+    #[inline]
     pub fn set_global<N>(&mut self, n: N)
     where
         N: AsCStr,
@@ -441,6 +482,7 @@ impl LuaState {
         }
     }
 
+    #[inline]
     pub fn get_global<N>(&mut self, n: N)
     where
         N: AsCStr,
@@ -451,18 +493,22 @@ impl LuaState {
         }
     }
 
+    #[inline]
     pub fn new_table(&mut self) {
         self.create_table(0, 0);
     }
 
+    #[inline]
     pub fn is_table(&self, idx: Index) -> bool {
         unsafe { ffi::lua_istable(self.lua_state, idx.as_absolute()) }
     }
 
+    #[inline]
     pub fn set_table(&mut self, idx: Index) {
         unsafe { ffi::lua_settable(self.lua_state, idx.as_absolute()) };
     }
 
+    #[inline]
     pub fn raw_seti(&mut self, idx: Index, i: i64) {
         unsafe { ffi::lua_rawseti(self.lua_state, idx.as_absolute(), i) };
     }

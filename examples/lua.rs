@@ -22,7 +22,6 @@ fn main() {
     }
 
     display_splash();
-
     loop {
         let read = read_line(&mut stdin, &mut source) - 1;
 

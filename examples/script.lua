@@ -1,4 +1,4 @@
-print("running lua script")
+--print("running lua script")
 
 foo = {
     bar = 42,
@@ -8,3 +8,7 @@ foo = {
         print("hello!!!!")
     end
 }
+
+function fun()
+    bar = "global"
+end

@@ -40,7 +40,7 @@ impl LuaFn for FnAdd {
         let a = state.get_value(Index::Arg(1))?;
         let b = state.get_value(Index::Arg(2))?;
 
-        let (a, b) = state.get_value(Index::BOTTOM)?;
+        //let (a, b) = state.get_value(Index::BOTTOM)?;
 
         state.push_value(Self::add(a, b));
         Ok(1)
