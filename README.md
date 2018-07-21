@@ -35,11 +35,14 @@ extern crate lua;
 
 use lua::prelude::*;
 
-struct FooFun;
+struct LengthFn;
 
-impl LuaFunction for FooFun {
-    fn call(state: &mut LuaState) -> Result<usize, ()> {
-        state.push_value("hello");
+impl LuaFn for LengthFn {
+    type Error = Error;
+    
+    fn call(state: &mut LuaState) -> Result<usize, Error> {
+        let len = state.get_string(Index::Arg(1)).map(|s| s.len());
+        state.push_value(len?)?;
         Ok(1)
     }
 }
@@ -47,47 +50,12 @@ impl LuaFunction for FooFun {
 let mut state = LuaState::new();
 state.open_libs();
 
-// push functions
-state.push_value(FooFun);
-state.set_global("dummy");
+// push rust functions
+state.push_value(LengthFn).unwrap();
+state.set_global("str_len");
 
-// run rust functions
-state.eval("bar = dummy()").unwrap();
-state.eval("print(bar)");
-```
-
-### Working with the stack
-
-```rust
-extern crate lua;
-
-use lua::prelude::*;
-
-let mut state = LuaState::new();
-
-// Values that implements the `IntoLua` and `FromLua` traits can be pushed an read from the stack.
-state.push_value(42);
-assert_eq!(Some(42.0), state.get_value::<f64>(Index::TOP));
-
-state.push_value(16);
-assert_eq!(Some(16), state.get_value::<i64>(Index::TOP));
-
-state.push_value("hello");
-assert_eq!(None, state.get_value::<i32>(Index::TOP));
-
-state.push_nil();
-assert!(state.is_nil(Index::TOP));
-```
-
-## Safety
-
-```rust
-state.push_value(3.14159265);
-
-// `LuaStr` is a view into a string owned by Lua.
-let value = state.get_string(Index::TOP).unwrap();
-
-state.pop(1); // **Compilation error**: potential dangling pointer
+// call from Lua
+state.eval("len = str_len()").unwrap();
 ```
 
 ## License
