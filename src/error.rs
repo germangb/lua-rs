@@ -50,8 +50,8 @@ impl fmt::Display for Error {
             Error::Runtime => write!(f, "Runtime error"),
             Error::Syntax => write!(f, "Syntax error"),
             Error::Memory => write!(f, "Memory error"),
-            Error::Gc => write!(f, "Garbade collector error"),
-            Error::Type => write!(f, "Type error"),
+            Error::Gc => write!(f, "Garbage collector error"),
+            Error::Type => write!(f, "Unexpected type"),
             Error::Unknown => write!(f, "Unknown error"),
         }
     }

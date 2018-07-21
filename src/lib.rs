@@ -101,6 +101,7 @@ pub trait IntoLua {
 /// A trait to implement functions that can be called from lua
 pub trait LuaFn {
     type Error;
+
     fn call(state: &mut LuaState) -> ::std::result::Result<usize, Self::Error>;
 }
 
@@ -109,55 +110,40 @@ macro_rules! impl_numeric {
         $( ( $( $type:ty , )+ ) => $lua_push:ident, $lua_to:ident )+
     ) => {
         $(
-            $(
-                impl IntoLua for $type {
-                    fn into_lua(&self, state: &mut LuaState) {
-                        unsafe { ffi::$lua_push(state.lua_state, *self as _) };
+            $(impl IntoLua for $type {
+                fn into_lua(&self, state: &mut LuaState) {
+                    unsafe { ffi::$lua_push(state.lua_state, *self as _) };
+                }
+            })+
+
+            $(impl<'a> FromLua<'a> for $type {
+                fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
+                    unsafe {
+                        let mut isnum = 0;
+                        let value = ffi::$lua_to(state.lua_state, index.as_absolute(), &mut isnum);
+                        if isnum == 0 { Err(Error::Type) } else { Ok(value as $type) }
                     }
                 }
-
-                impl<'a> FromLua<'a> for $type {
-                    fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
-                        unsafe {
-                            let mut isnum = 0;
-
-                            let value = ffi::$lua_to(state.lua_state, index.as_absolute(), &mut isnum);
-
-                            if isnum == 0 {
-                                Err(Error::Type)
-                            } else {
-                                Ok(value as $type)
-                            }
-                        }
-                    }
-                }
-            )+
+            })+
         )+
     }
 }
 
 macro_rules! impl_str {
+    () => {
+        fn into_lua(&self, state: &mut LuaState) {
+            unsafe { ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _) };
+        }
+    };
     ($($type:ty),+) => {
-        $(
-            impl IntoLua for $type {
-                fn into_lua(&self, state: &mut LuaState) {
-                    unsafe {
-                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
-                    }
-                }
-            }
-        )+
+        $(impl IntoLua for $type {
+            impl_str!();
+        })+
     };
     ($( ref $type:ty ),+) => {
-        $(
-            impl<'a> IntoLua for &'a $type {
-                fn into_lua(&self, state: &mut LuaState) {
-                    unsafe {
-                        ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
-                    }
-                }
-            }
-        )+
+        $(impl<'a> IntoLua for &'a $type {
+            impl_str!();
+        })+
     }
 }
 
@@ -170,7 +156,7 @@ macro_rules! impl_int {
 }
 
 impl_num! { f64, f32 }
-impl_int! { i64, i32, i16, i8, u64, u32, u16, u8 }
+impl_int! { i64, i32, i16, i8, u64, u32, u16, u8, usize, isize }
 impl_str! { ref str, ref String }
 impl_str! { String }
 
@@ -266,6 +252,11 @@ impl LuaState {
         }
     }
 
+    pub fn into_raw(mut self) -> *mut ffi::lua_State {
+        self.owned = false;
+        self.lua_state
+    }
+
     pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
         LuaState {
             owned: true,
@@ -277,8 +268,6 @@ impl LuaState {
     pub fn open_libs(&self) {
         unsafe { ffi::luaL_openlibs(self.lua_state) }
     }
-
-    pub fn close(self) {}
 
     pub fn eval<T>(&mut self, source: T) -> Result<()>
     where
