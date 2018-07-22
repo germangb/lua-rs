@@ -73,7 +73,7 @@ impl Index {
 #[derive(Debug)]
 pub struct LuaState {
     owned: bool,
-    lua_state: *mut ffi::lua_State,
+    pointer: *mut ffi::lua_State,
 }
 
 /// Type to configura the garbage collector
@@ -85,7 +85,7 @@ pub struct LuaGc<'a> {
 impl Drop for LuaState {
     fn drop(&mut self) {
         if self.owned {
-            unsafe { ffi::lua_close(self.lua_state) }
+            unsafe { ffi::lua_close(self.pointer) }
         }
     }
 }
@@ -118,10 +118,10 @@ macro_rules! impl_numeric {
             $(impl IntoLua for $type {
                 fn into_lua(&self, state: &mut LuaState) -> Result<()> {
                     unsafe {
-                        if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                        if ffi::lua_checkstack(state.pointer, 1) == 0 {
                             Err(Error::Memory)
                         } else {
-                            ffi::$lua_push(state.lua_state, *self as _);
+                            ffi::$lua_push(state.pointer, *self as _);
                             Ok(())
                         }
                     }
@@ -132,7 +132,7 @@ macro_rules! impl_numeric {
                 fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
                     unsafe {
                         let mut isnum = 0;
-                        let value = ffi::$lua_to(state.lua_state, index.as_absolute(), &mut isnum);
+                        let value = ffi::$lua_to(state.pointer, index.as_absolute(), &mut isnum);
                         if isnum == 0 { Err(Error::Type) } else { Ok(value as $type) }
                     }
                 }
@@ -145,10 +145,10 @@ macro_rules! impl_str {
     () => {
         fn into_lua(&self, state: &mut LuaState) -> Result<()> {
             unsafe {
-                if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+                if ffi::lua_checkstack(state.pointer, 1) == 0 {
                     Err(Error::Memory)
                 } else {
-                    ffi::lua_pushlstring(state.lua_state, self.as_ptr() as _, self.len() as _);
+                    ffi::lua_pushlstring(state.pointer, self.as_ptr() as _, self.len() as _);
                     Ok(())
                 }
             }
@@ -182,14 +182,14 @@ impl_str! { String }
 impl IntoLua for bool {
     fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+            if ffi::lua_checkstack(state.pointer, 1) == 0 {
                 return Err(Error::Memory)
             }
 
             if *self {
-                ffi::lua_pushboolean(state.lua_state, 1);
+                ffi::lua_pushboolean(state.pointer, 1);
             } else {
-                ffi::lua_pushboolean(state.lua_state, 0);
+                ffi::lua_pushboolean(state.pointer, 0);
             }
 
             Ok(())
@@ -201,10 +201,10 @@ impl IntoLua for Nil {
     #[inline]
     fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+            if ffi::lua_checkstack(state.pointer, 1) == 0 {
                 Err(Error::Memory)
             } else {
-                ffi::lua_pushnil(state.lua_state);
+                ffi::lua_pushnil(state.pointer);
                 Ok(())
             }
         }
@@ -215,10 +215,10 @@ impl IntoLua for Table {
     #[inline]
     fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+            if ffi::lua_checkstack(state.pointer, 1) == 0 {
                 Err(Error::Memory)
             } else {
-                ffi::lua_createtable(state.lua_state, 0, 0);
+                ffi::lua_createtable(state.pointer, 0, 0);
                 Ok(())
             }
         }
@@ -253,7 +253,7 @@ where
 {
     fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+            if ffi::lua_checkstack(state.pointer, 1) == 0 {
                 return Err(Error::Memory)
             }
 
@@ -269,7 +269,7 @@ where
 impl<'a> FromLua<'a> for bool {
     #[inline]
     fn from_lua(state: &'a LuaState, index: Index) -> Result<Self> {
-        unsafe { Ok(ffi::lua_toboolean(state.lua_state, index.as_absolute()) != 0) }
+        unsafe { Ok(ffi::lua_toboolean(state.pointer, index.as_absolute()) != 0) }
     }
 }
 
@@ -280,10 +280,10 @@ where
 {
     fn into_lua(&self, state: &mut LuaState) -> Result<()> {
         unsafe {
-            if ffi::lua_checkstack(state.lua_state, 1) == 0 {
+            if ffi::lua_checkstack(state.pointer, 1) == 0 {
                 return Err(Error::Memory)
             } else {
-                ffi::lua_pushcfunction(state.lua_state, Some(function::<F, E>));
+                ffi::lua_pushcfunction(state.pointer, Some(function::<F, E>));
                 return Ok(())
             }
 
@@ -292,16 +292,15 @@ where
                 E: ::std::fmt::Display,
                 F: LuaFn<Error = E>,
             {
-                let mut lua_state = LuaState {
+                let mut pointer = LuaState {
                     owned: false,
-                    lua_state: state,
+                    pointer: state,
                 };
 
-                match F::call(&mut lua_state) {
+                match F::call(&mut pointer) {
                     Ok(n) => n as _,
                     Err(e) => unsafe {
-                        // TODO unwrap
-                        lua_state.push_value(format!("{}", e)).unwrap();
+                        pointer.push_value(format!("{}", e)).expect("Unable to push error message");
                         ffi::lua_error(state);
                         unreachable!()
                     },
@@ -316,27 +315,27 @@ impl LuaState {
         unsafe {
             LuaState {
                 owned: true,
-                lua_state: ffi::luaL_newstate(),
+                pointer: ffi::luaL_newstate(),
             }
         }
     }
 
     pub fn into_raw(mut self) -> *mut ffi::lua_State {
         self.owned = false;
-        self.lua_state
+        self.pointer
     }
 
     #[inline]
     pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
         LuaState {
             owned: true,
-            lua_state: state,
+            pointer: state,
         }
     }
 
     #[cfg(feature = "stdlib")]
     pub fn open_libs(&self) {
-        unsafe { ffi::luaL_openlibs(self.lua_state) }
+        unsafe { ffi::luaL_openlibs(self.pointer) }
     }
 
     pub fn eval<T>(&mut self, source: T) -> Result<()>
@@ -366,7 +365,7 @@ impl LuaState {
 
     pub fn call_protected(&mut self, nargs: usize, nresults: usize) -> Result<()> {
         unsafe {
-            match ffi::lua_pcall(self.lua_state, nargs as _, nresults as _, 0) as _ {
+            match ffi::lua_pcall(self.pointer, nargs as _, nresults as _, 0) as _ {
                 ffi::LUA_OK => Ok(()),
                 code @ _ => Err(Error::from_lua_result(code as _)),
             }
@@ -379,7 +378,7 @@ impl LuaState {
     {
         unsafe {
             let source = source.as_cstr();
-            match ffi::luaL_loadstring(self.lua_state, source.as_ptr() as _) as _ {
+            match ffi::luaL_loadstring(self.pointer, source.as_ptr() as _) as _ {
                 ffi::LUA_OK => Ok(()),
                 code @ _ => Err(Error::from_lua_result(code as _)),
             }
@@ -388,7 +387,7 @@ impl LuaState {
 
     #[inline]
     pub fn pop(&mut self, n: usize) {
-        unsafe { ffi::lua_pop(self.lua_state, n as _) }
+        unsafe { ffi::lua_pop(self.pointer, n as _) }
     }
 
     #[inline]
@@ -423,37 +422,37 @@ impl LuaState {
     }
 
     pub fn is_nil(&self, idx: Index) -> bool {
-        unsafe { ffi::lua_isnil(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_isnil(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
     pub fn is_number(&self, idx: Index) -> bool {
-        unsafe { ffi::lua_isnumber(self.lua_state, idx.as_absolute()) != 0 }
+        unsafe { ffi::lua_isnumber(self.pointer, idx.as_absolute()) != 0 }
     }
 
     #[inline]
     pub fn is_integer(&self, idx: Index) -> bool {
-        unsafe { ffi::lua_isinteger(self.lua_state, idx.as_absolute()) != 0 }
+        unsafe { ffi::lua_isinteger(self.pointer, idx.as_absolute()) != 0 }
     }
 
     #[inline]
     pub fn is_string(&self, idx: Index) -> bool {
-        unsafe { ffi::lua_isstring(self.lua_state, idx.as_absolute()) != 0 }
+        unsafe { ffi::lua_isstring(self.pointer, idx.as_absolute()) != 0 }
     }
 
     #[inline]
     pub fn insert(&mut self, idx: Index) {
-        unsafe { ffi::lua_insert(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_insert(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
     pub fn replace(&mut self, idx: Index) {
-        unsafe { ffi::lua_replace(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_replace(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
     pub fn remove(&mut self, idx: Index) {
-        unsafe { ffi::lua_remove(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_remove(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
@@ -463,12 +462,12 @@ impl LuaState {
 
     #[inline]
     pub fn raw_len(&self, idx: Index) -> usize {
-        unsafe { ffi::lua_rawlen(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_rawlen(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
     pub fn stack_size(&self) -> usize {
-        unsafe { ffi::lua_gettop(self.lua_state) as _ }
+        unsafe { ffi::lua_gettop(self.pointer) as _ }
     }
 
     #[inline]
@@ -478,7 +477,7 @@ impl LuaState {
     {
         unsafe {
             let cstr = n.as_cstr();
-            ffi::lua_setglobal(self.lua_state, cstr.as_ptr());
+            ffi::lua_setglobal(self.pointer, cstr.as_ptr());
         }
     }
 
@@ -489,7 +488,7 @@ impl LuaState {
     {
         unsafe {
             let cstr = n.as_cstr();
-            ffi::lua_getglobal(self.lua_state, cstr.as_ptr());
+            ffi::lua_getglobal(self.pointer, cstr.as_ptr());
         }
     }
 
@@ -500,58 +499,58 @@ impl LuaState {
 
     #[inline]
     pub fn is_table(&self, idx: Index) -> bool {
-        unsafe { ffi::lua_istable(self.lua_state, idx.as_absolute()) }
+        unsafe { ffi::lua_istable(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
     pub fn set_table(&mut self, idx: Index) {
-        unsafe { ffi::lua_settable(self.lua_state, idx.as_absolute()) };
+        unsafe { ffi::lua_settable(self.pointer, idx.as_absolute()) };
     }
 
     #[inline]
     pub fn raw_seti(&mut self, idx: Index, i: i64) {
-        unsafe { ffi::lua_rawseti(self.lua_state, idx.as_absolute(), i) };
+        unsafe { ffi::lua_rawseti(self.pointer, idx.as_absolute(), i) };
     }
 }
 
 impl<'a> LuaGc<'a> {
     #[inline]
     pub fn collect(&mut self) {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCCOLLECT as _, 0) };
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCCOLLECT as _, 0) };
     }
 
     #[inline]
     pub fn stop(&mut self) {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSTOP as _, 0) };
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCSTOP as _, 0) };
     }
 
     #[inline]
     pub fn restart(&mut self) {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCRESTART as _, 0) };
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCRESTART as _, 0) };
     }
 
     #[inline]
     pub fn step(&mut self, arg: i32) {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSTEP as _, arg) };
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCSTEP as _, arg) };
     }
 
     #[inline]
     pub fn set_pause(&mut self, arg: i32) -> i32 {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSETPAUSE as _, arg) }
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCSETPAUSE as _, arg) }
     }
 
     #[inline]
     pub fn set_step_mul(&mut self, arg: i32) -> i32 {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCSETPAUSE as _, arg) }
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCSETPAUSE as _, arg) }
     }
 
     #[inline]
     pub fn is_running(&self) -> bool {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCISRUNNING as _, 0) != 0 }
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCISRUNNING as _, 0) != 0 }
     }
 
     #[inline]
     pub fn count(&self) -> i32 {
-        unsafe { ffi::lua_gc(self.state.lua_state, ffi::LUA_GCCOUNT as _, 0) }
+        unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCCOUNT as _, 0) }
     }
 }

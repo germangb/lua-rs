@@ -16,7 +16,7 @@ impl<'a> FromLua<'a> for LuaStr<'a> {
         unsafe {
             let mut len = 0;
 
-            let ptr = ffi::lua_tolstring(state.lua_state, index.as_absolute(), &mut len);
+            let ptr = ffi::lua_tolstring(state.pointer, index.as_absolute(), &mut len);
             if ptr.is_null() {
                 Err(Error::Type)
             } else {
