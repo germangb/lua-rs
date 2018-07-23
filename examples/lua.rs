@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate lua;
 
 use lua::prelude::*;
@@ -30,7 +31,7 @@ fn main() {
             Err(Error::Syntax) => {
                 if read == 0 {
                     source.clear();
-                    eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
+                    //eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
                 }
 
                 state.pop(1);
@@ -42,7 +43,7 @@ fn main() {
         match state.call_protected(0, 0) {
             Ok(_) => {}
             Err(Error::Runtime) => {
-                eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
+                //eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
                 state.pop(1);
             }
             Err(err) => panic!("{:?}", err),
@@ -56,7 +57,7 @@ fn display_splash() {
     eprintln!("The following Rust functions can be called from the shell:");
     eprintln!("  * rust.error() - Raises a runtime error. The error message is also formatted in rust");
     eprintln!("  * rust.add(a, b) - Returns the sum of `a` and `b`");
-    eprintln!("  * rust.len(c) - Returns the length of the string `c`");
+    //eprintln!("  * rust.len(c) - Returns the length of the string `c`");
     eprintln!();
 }
 
