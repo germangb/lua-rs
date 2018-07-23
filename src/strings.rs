@@ -1,5 +1,5 @@
-use {ffi, Error, FromLua, IntoLua, LuaState, Result};
 use index::Index;
+use {ffi, Error, FromLua, IntoLua, LuaState, Result};
 
 use std::{slice, str};
 

@@ -1,32 +1,3 @@
-//! # Example
-//!
-//! The following example implements a square function:
-//!
-//! ```rust
-//! extern crate lua;
-//!
-//! use lua::prelude::*;
-//!
-//! struct SquareFunction;
-//!
-//! impl LuaFunction for SquareFunction {
-//!     type Error = Error;
-//!
-//!     fn call(state: &LuaState) -> Result<usize, Error> {
-//!         let n: i64 = state.get(Index::Arg(1))?;
-//!         state.push(n*n)?;
-//!         Ok(1)
-//!     }
-//! }
-//!
-//! let mut state = LuaState::new();
-//! state.open_libs();
-//!
-//! state.push(lua_function!(SquareFunction)).unwrap();
-//! state.set_global("square");
-//!
-//! state.eval("print(square(4))").unwrap(); // 16
-//! ```
 use {ffi, Error, IntoLua, LuaState, Result};
 
 use std::fmt;
