@@ -58,7 +58,7 @@ fn main() {
     }
 
     let bindings = builder()
-        .header("wrapper.h")
+        .header("lua.h")
         .layout_tests(false)
         .whitelist_function("^lua(L?)_(.*)")
         .whitelist_var("^LUA(L?)_(.*)")
