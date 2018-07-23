@@ -51,7 +51,7 @@ impl LuaFunction for Square {
 let mut state = LuaState::new();
 
 // register function
-state.push(Square).unwrap();
+state.push(lua_function!(Square)).unwrap();
 state.set_global("square");
 
 // call from Lua
