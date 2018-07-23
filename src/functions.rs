@@ -27,7 +27,6 @@
 //!
 //! state.eval("print(square(4))").unwrap(); // 16
 //! ```
-use strings::LuaStringWrapper;
 use {ffi, Error, IntoLua, LuaState, Result};
 
 use std::fmt;
@@ -76,7 +75,7 @@ where
         Ok(n) => n as _,
         Err(e) => unsafe {
             pointer
-                .push(LuaStringWrapper::wrap(format!("{}", e)))
+                .push(format!("{}", e))
                 .expect("Unable to push error message");
             ffi::lua_error(state);
             unreachable!()

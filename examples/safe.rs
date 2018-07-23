@@ -25,11 +25,19 @@ fn main() {
     state.set_global("number");
 
     // push strings
-    state.push(lua_string!("hello world!")).unwrap();
+    state.push("hello world!").unwrap();
     state.set_global("string");
 
     state.push(lua_function!(TestFunc)).unwrap();
     state.set_global("crash");
+
+    {
+        state.push("hello rust");
+
+        let line: &str = state.get(-1).unwrap();
+        println!("{}", line);
+    }
+    state.pop(1);
 
     // ---
     state.eval("print(string)").unwrap();

@@ -7,12 +7,16 @@ pub struct FnLen;
 /// Load library into a `rust` lua table
 pub fn load(state: &mut LuaState) {
     state.push(Table);
-    state.push(lua_string!("error"));
+    state.push("error");
     state.push(lua_function!(FnError));
     state.set_table(-3);
 
-    state.push(lua_string!("add"));
+    state.push("add");
     state.push(lua_function!(FnAdd));
+    state.set_table(-3);
+
+    state.push("len");
+    state.push(lua_function!(FnLen));
     state.set_table(-3);
 
     state.set_global("rust");
@@ -39,6 +43,20 @@ impl LuaFunction for FnAdd {
         let a = state.get(1)?;
         let b = state.get(2)?;
         state.push(Self::add(a, b));
+        Ok(1)
+    }
+}
+
+impl LuaFunction for FnLen {
+    type Error = Error;
+
+    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+        let length = {
+            let s: &str = state.get(1)?;
+            s.len()
+        };
+
+        state.push(length);
         Ok(1)
     }
 }

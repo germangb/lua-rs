@@ -57,7 +57,7 @@ fn display_splash() {
     eprintln!("The following Rust functions can be called from the shell:");
     eprintln!("  * rust.error() - Raises a runtime error. The error message is also formatted in rust");
     eprintln!("  * rust.add(a, b) - Returns the sum of `a` and `b`");
-    //eprintln!("  * rust.len(c) - Returns the length of the string `c`");
+    eprintln!("  * rust.len(c) - Returns the length of the string `c`");
     eprintln!();
 }
 
