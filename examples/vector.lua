@@ -11,3 +11,7 @@ vec.add(v, 4)
 print("vector:", v)
 
 print("vector[3] =", vec.get(v, 3))
+
+
+-- Runtime error (out of bounds):
+-- print("vector[42] =", vec.get(v, 42))

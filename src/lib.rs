@@ -36,6 +36,53 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Nil;
 
+/// Type to represent a generic lua table. NOT a specific one.
+#[derive(Debug, Copy, Clone)]
+pub struct Table;
+
+/// Type to perform operations over an underlying `lua_State` safely
+#[derive(Debug)]
+pub struct LuaState {
+    owned: bool,
+    pointer: *mut ffi::lua_State,
+}
+
+/// Type to configura the garbage collector
+#[derive(Debug)]
+pub struct LuaGc<'a> {
+    state: &'a LuaState,
+}
+
+impl<T: IntoLua> IntoLua for Option<T> {
+    #[inline]
+    unsafe fn into_lua(self, state: &mut LuaState) {
+        if let Some(v) = self {
+            v.into_lua(state)
+        } else {
+            state.push(Nil).unwrap()
+        }
+    }
+}
+
+impl<'a, T: FromLua<'a>> FromLua<'a> for Option<T> {
+    #[inline]
+    unsafe fn from_lua(state: &'a LuaState, idx: Index) -> Result<Self> {
+        Ok(T::from_lua(state, idx).ok())
+    }
+
+    #[inline]
+    unsafe fn check(_: &LuaState, _: Index) -> bool {
+        true
+    }
+}
+
+impl IntoLua for Table {
+    #[inline]
+    unsafe fn into_lua(self, state: &mut LuaState) {
+        ffi::lua_newtable(state.pointer);
+    }
+}
+
 impl IntoLua for Nil {
     #[inline]
     unsafe fn into_lua(self, state: &mut LuaState) {
@@ -57,30 +104,6 @@ impl<'a> FromLua<'a> for Nil {
     unsafe fn check(state: &LuaState, idx: Index) -> bool {
         ffi::lua_isnil(state.pointer, idx.as_absolute() as _)
     }
-}
-
-/// Type to represent a generic lua table. NOT a specific one.
-#[derive(Debug, Copy, Clone)]
-pub struct Table;
-
-impl IntoLua for Table {
-    #[inline]
-    unsafe fn into_lua(self, state: &mut LuaState) {
-        ffi::lua_newtable(state.pointer);
-    }
-}
-
-/// Type to perform operations over an underlying `lua_State` safely
-#[derive(Debug)]
-pub struct LuaState {
-    owned: bool,
-    pointer: *mut ffi::lua_State,
-}
-
-/// Type to configura the garbage collector
-#[derive(Debug)]
-pub struct LuaGc<'a> {
-    state: &'a LuaState,
 }
 
 /// Trait for types that can be pushed to the lua stack

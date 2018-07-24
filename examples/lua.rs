@@ -1,12 +1,11 @@
 #[macro_use]
 extern crate lua;
 
-use lua::prelude::*;
-
-use std::{fs, io, env};
-
-/// Lua library implemented in Rust
 mod lib;
+
+use lib::example;
+use lua::prelude::*;
+use std::{fs, io, env};
 
 fn main() {
     let mut stdin = io::stdin();
@@ -15,7 +14,7 @@ fn main() {
     let mut state = LuaState::new();
 
     state.open_libs();
-    lib::load(&mut state);
+    example::load(&mut state).unwrap();
 
     // load program
     if let Some(file) = env::args().nth(1) {
@@ -31,7 +30,8 @@ fn main() {
             Err(Error::Syntax) => {
                 if read == 0 {
                     source.clear();
-                    //eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
+                    let error: &str = state.get(-1).unwrap();
+                    eprintln!("ERROR: {:?}", error);
                 }
 
                 state.pop(1);
@@ -43,7 +43,10 @@ fn main() {
         match state.call_protected(0, 0) {
             Ok(_) => {}
             Err(Error::Runtime) => {
-                //eprintln!("ERROR: {:?}", state.get_string(Index::TOP).unwrap());
+                {
+                    let error: &str = state.get(-1).unwrap();
+                    eprintln!("ERROR: {:?}", error);
+                }
                 state.pop(1);
             }
             Err(err) => panic!("{:?}", err),
