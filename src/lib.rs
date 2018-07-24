@@ -27,10 +27,7 @@ use error::Error;
 use ffi::AsCStr;
 use index::Index;
 
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
-use std::str;
+use std::{fs::File, io::Read, path::Path, str};
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -40,6 +37,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub struct Nil;
 
 impl IntoLua for Nil {
+    #[inline]
     unsafe fn into_lua(self, state: &mut LuaState) {
         ffi::lua_pushnil(state.pointer);
     }
@@ -66,6 +64,7 @@ impl<'a> FromLua<'a> for Nil {
 pub struct Table;
 
 impl IntoLua for Table {
+    #[inline]
     unsafe fn into_lua(self, state: &mut LuaState) {
         ffi::lua_newtable(state.pointer);
     }
@@ -86,12 +85,15 @@ pub struct LuaGc<'a> {
 
 /// Trait for types that can be pushed to the lua stack
 pub trait IntoLua {
+    /// Push value to the stack.
+    ///
+    /// This method is unsafe because it doesn't check for available space in the stack.
     unsafe fn into_lua(self, state: &mut LuaState);
 }
 
 /// Trait for types that can be read from the lua stack
 pub trait FromLua<'a>: Sized {
-    /// Read the value
+    /// Read the value at the given index.
     unsafe fn from_lua(&'a LuaState, Index) -> Result<Self>;
 
     /// Check if the valuea the given index is of this type
@@ -272,10 +274,7 @@ impl LuaState {
     where
         N: AsCStr,
     {
-        unsafe {
-            let cstr = n.as_cstr();
-            ffi::lua_setglobal(self.pointer, cstr.as_ptr());
-        }
+        unsafe { ffi::lua_setglobal(self.pointer, n.as_cstr().as_ptr()) };
     }
 
     #[inline]
@@ -283,10 +282,7 @@ impl LuaState {
     where
         N: AsCStr,
     {
-        unsafe {
-            let cstr = n.as_cstr();
-            ffi::lua_getglobal(self.pointer, cstr.as_ptr());
-        }
+        unsafe { ffi::lua_getglobal(self.pointer, n.as_cstr().as_ptr()) };
     }
 
     #[inline]
