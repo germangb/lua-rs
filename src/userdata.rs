@@ -234,15 +234,14 @@ where
 {
     #[inline]
     unsafe fn from_lua_mut(state: &'a mut LuaState, idx: Index) -> Result<Self> {
-        let ptr = ffi::lua_touserdata(state.pointer, idx.as_absolute());
+        //let pointer = ffi::lua_touserdata(state.pointer, idx.as_absolute()) as *const D;
+        let meta = CString::new(D::METATABLE).unwrap();
+        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _) as *mut D;
 
-        if ptr.is_null() {
+        if pointer.is_null() {
             Err(Error::Type)
         } else {
-            Ok(RefMut {
-                state,
-                pointer: ptr as *mut D,
-            })
+            Ok(RefMut { state, pointer })
         }
     }
 }
