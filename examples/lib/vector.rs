@@ -14,14 +14,6 @@ struct Get;         // Function to return values from the Vector
 struct New;         // Function to create a new Vector
 struct Insert;      // Function to append values to Vector
 
-lua_library! {
-    ToString => "tostring",
-    Length => "length",
-    Get => "length",
-    New => "new",
-    Insert => "set"
-}
-
 impl LuaUserData for Vector {
     const METATABLE: &'static str = "Vector.Vector";
 
@@ -132,3 +124,10 @@ pub fn load_lib(lua: &mut LuaState) -> Result<(), Error> {
 }
 */
 
+lua_library! {
+    ToString    => "tostring",
+    Length      => "length",
+    Get         => "length",
+    New         => "new",
+    Insert      => "set"
+}

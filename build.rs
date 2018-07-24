@@ -60,6 +60,7 @@ fn main() {
     let bindings = builder()
         .header("lua.h")
         .layout_tests(false)
+        .whitelist_function("^luaopen_(.*)")
         .whitelist_function("^lua(L?)_(.*)")
         .whitelist_var("^LUA(L?)_(.*)")
         .clang_args(&[

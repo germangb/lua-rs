@@ -47,6 +47,23 @@ pub struct LuaState {
     pointer: *mut ffi::lua_State,
 }
 
+/// Standard libraries
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[cfg(feature = "stdlib")]
+pub enum LuaLib {
+    Base,
+    Bit32,
+    Coroutine,
+    Debug,
+    Io,
+    Math,
+    Os,
+    Package,
+    String,
+    Table,
+    Utf8,
+}
+
 /// Type to configura the garbage collector
 #[derive(Debug)]
 pub struct LuaGc<'a> {
@@ -152,9 +169,30 @@ impl LuaState {
         }
     }
 
+    #[inline]
     #[cfg(feature = "stdlib")]
-    pub fn open_libs(&self) {
+    pub fn open_libs(&mut self) {
         unsafe { ffi::luaL_openlibs(self.pointer) }
+    }
+
+    #[inline]
+    #[cfg(feature = "stdlib")]
+    pub fn open_lib(&mut self, lib: LuaLib) {
+        unsafe {
+            match lib {
+                LuaLib::Base => ffi::luaopen_base(self.pointer),
+                LuaLib::Bit32 => ffi::luaopen_bit32(self.pointer),
+                LuaLib::Coroutine => ffi::luaopen_coroutine(self.pointer),
+                LuaLib::Debug => ffi::luaopen_debug(self.pointer),
+                LuaLib::Io => ffi::luaopen_io(self.pointer),
+                LuaLib::Math => ffi::luaopen_math(self.pointer),
+                LuaLib::Os => ffi::luaopen_math(self.pointer),
+                LuaLib::Package => ffi::luaopen_package(self.pointer),
+                LuaLib::String => ffi::luaopen_string(self.pointer),
+                LuaLib::Table => ffi::luaopen_table(self.pointer),
+                LuaLib::Utf8 => ffi::luaopen_utf8(self.pointer),
+            };
+        }
     }
 
     pub fn eval<T>(&mut self, source: T) -> Result<()>
