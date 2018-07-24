@@ -3,8 +3,9 @@ extern crate lua;
 
 mod lib;
 
-use lib::example;
+use lib::{example, vector};
 use lua::prelude::*;
+
 use std::{fs, io, env};
 
 fn main() {
@@ -12,6 +13,7 @@ fn main() {
 
     state.open_libs();
     example::load(&mut state).unwrap();
+    vector::load_lib(&mut state).unwrap();
 
     // evaluate file from first argument
     if let Some(file) = env::args().nth(1) {

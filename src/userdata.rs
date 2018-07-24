@@ -1,5 +1,8 @@
 use index::Index;
 use {ffi, Error, FromLua, FromLuaMut, IntoLua, LuaState, Result};
+use functions::LuaFunction;
+
+use ffi::AsCStr;
 
 use std::ffi::CString;
 use std::os::raw;
@@ -9,10 +12,115 @@ use std::{fmt, mem, ops, ptr};
 #[doc(hidden)]
 pub struct LuaUserDataWrapper<T>(pub T);
 
+/// Type used to register userdata metamethods from the `LuaUserData` trait.
+pub struct Meta(*mut ffi::lua_State);
+
+/// All lua metamethods are supported except for `__gc`, which is handled by the standard `Drop` trait
+/// of the type
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Metamethod {
+    /// Equivalent to the `__tostring` metamethod
+    ToString,
+    /// Equivalent to the `__index` metamethod
+    Index,
+    /// Equivalent to the `__newindex` metamethod
+    NewIndex,
+    /// Equivalent to the `__add` metamethod
+    Add,
+    /// Equivalent to the `__sub` metamethod
+    Sub,
+    /// Equivalent to the `__mul` metamethod
+    Mul,
+    /// Equivalent to the `__div` metamethod
+    Div,
+    /// Equivalent to the `__mod` metamethod
+    Mod,
+    /// Equivalent to the `__pow` metamethod
+    Pow,
+    /// Equivalent to the `__unm` metamethod
+    Unm,
+    /// Equivalent to the `__concat` metamethod
+    Concat,
+    /// Equivalent to the `__len` metamethod
+    Len,
+    /// Equivalent to the `__eq` metamethod
+    Eq,
+    /// Equivalent to the `__lt` metamethod
+    Lt,
+    /// Equivalent to the `__le` metamethod
+    Le,
+    /// Equivalent to the `__call` metamethod
+    Call,
+}
+
+impl Metamethod {
+    #[inline]
+    fn as_cstr(&self) -> &str {
+        match *self {
+            Metamethod::ToString => "__tostring\0",
+            Metamethod::Index => "__index\0",
+            Metamethod::NewIndex => "__newindex\0",
+            Metamethod::Add => "__add\0",
+            Metamethod::Sub => "__sub\0",
+            Metamethod::Mul => "__mul\0",
+            Metamethod::Div => "__div\0",
+            Metamethod::Mod => "__mod\0",
+            Metamethod::Pow => "__pow\0",
+            Metamethod::Unm => "__unm\0",
+            Metamethod::Concat => "__concat\0",
+            Metamethod::Len => "__len\0",
+            Metamethod::Eq => "__eq\0",
+            Metamethod::Lt => "__lt\0",
+            Metamethod::Le => "__le\0",
+            Metamethod::Call => "__call\0",
+        }
+    }
+}
+
+impl Meta {
+    /// Register a metamethod
+    pub fn set<E, F>(&mut self, method: Metamethod, value: F)
+    where
+        E: fmt::Display,
+        F: LuaFunction<Error=E>,
+    {
+        unsafe {
+            ffi::lua_pushstring(self.0, method.as_cstr().as_ptr() as _);
+            ffi::lua_pushcfunction(self.0, Some(__metamethod::<F, E>));
+            ffi::lua_settable(self.0, -3);
+
+            extern "C" fn __metamethod<F, E>(state: *mut ffi::lua_State) -> raw::c_int
+            where
+                E: fmt::Display,
+                F: LuaFunction<Error = E>,
+            {
+                let mut pointer = LuaState {
+                    owned: false,
+                    pointer: state,
+                };
+
+                match F::call(&mut pointer) {
+                    Ok(n) => n as _,
+                    Err(e) => unsafe {
+                        pointer
+                            .push(format!("{}", e))
+                            .expect("Unable to push error message");
+                        ffi::lua_error(state);
+                        unreachable!()
+                    },
+                }
+            }
+        }
+    }
+}
+
 /// Type to implement Lua userdata, which is an arbitrary block of memory managed by Lua
 pub trait LuaUserData {
     /// Name of the metatable
     const METATABLE: &'static str;
+
+    /// Called only once to register the metamethods of the type.
+    fn register(meta: &mut Meta) {}
 }
 
 /// Immutable reference to a userdatum
@@ -73,9 +181,14 @@ where
             ffi::lua_pushcfunction(state.pointer, Some(__gc::<D>));
             ffi::lua_settable(state.pointer, -3);
 
+            /*
             ffi::lua_pushstring(state.pointer, "__tostring\0".as_ptr() as _);
             ffi::lua_pushcfunction(state.pointer, Some(__tostring::<D>));
             ffi::lua_settable(state.pointer, -3);
+            */
+
+            let mut meta = Meta(state.pointer);
+            D::register(&mut meta);
         }
         ffi::lua_setmetatable(state.pointer, -2);
 
@@ -87,6 +200,7 @@ where
             0
         }
 
+        /*
         unsafe extern "C" fn __tostring<D>(state: *mut ffi::lua_State) -> raw::c_int
         where
             D: LuaUserData + fmt::Debug,
@@ -104,6 +218,7 @@ where
             state.push(repr);
             1
         }
+        */
     }
 }
 

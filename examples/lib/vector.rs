@@ -3,6 +3,27 @@ use lua::prelude::*;
 #[derive(Debug)]
 struct Vector(Vec<i32>);
 
+// --------------------------------
+// Functions & Metamethods
+// --------------------------------
+
+struct MetaToString;    // `__tostring` metamethod
+struct Get;             // Function to return values from the Vector
+                        // This function is also set as the `__index` metamethod
+struct New;             // Function to create a new Vector
+struct Add;             // Function to append values to Vector
+
+impl LuaUserData for Vector {
+    const METATABLE: &'static str = "Vector.Vector";
+
+    fn register(meta: &mut Meta) {
+        meta.set(Metamethod::ToString, MetaToString);
+        meta.set(Metamethod::Index, Get);
+    }
+}
+
+// --------------------------------
+
 impl Vector {
     fn new() -> Self {
         Vector(Vec::new())
@@ -18,13 +39,15 @@ impl Vector {
     }
 }
 
-impl LuaUserData for Vector {
-    const METATABLE: &'static str = "Vector.Vector";
-}
+impl LuaFunction for MetaToString {
+    type Error = Error;
 
-struct New; // function to create a new Vector
-struct Add; // function to append values to Vector
-struct Get; // function to return values from the Vector
+    fn call(state: &mut LuaState) -> Result<usize, Error> {
+        let string = state.get(1).map(|v: Ref<Vector>| format!("{:?}", *v))?;
+        state.push(string)?;
+        Ok(1)
+    }
+}
 
 impl LuaFunction for New {
     type Error = Error;
@@ -52,10 +75,7 @@ impl LuaFunction for Get {
     fn call(state: &mut LuaState) -> Result<usize, Error> {
         let index: usize = state.get(2)?;
         let value = state.get(1)
-            .and_then(|s: Ref<Vector>|
-                // map Out of bounds error to a Lua runtime error
-                s.get(index).ok_or(Error::Runtime)
-            )?;
+            .and_then(|s: Ref<Vector>| s.get(index).ok() )?;
 
         state.push(value);
         Ok(1)
