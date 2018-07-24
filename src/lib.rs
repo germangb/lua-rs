@@ -1,4 +1,4 @@
-mod macros;
+pub mod macros;
 
 /// Error types
 pub mod error;
