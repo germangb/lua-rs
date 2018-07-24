@@ -15,41 +15,24 @@ pub struct LuaUserDataWrapper<T>(pub T);
 /// Type used to register userdata metamethods from the `LuaUserData` trait.
 pub struct Meta(*mut ffi::lua_State);
 
-/// All lua metamethods are supported except for `__gc`, which is handled by the standard `Drop` trait
-/// of the type
+/// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Metamethod {
-    /// Equivalent to the `__tostring` metamethod
     ToString,
-    /// Equivalent to the `__index` metamethod
     Index,
-    /// Equivalent to the `__newindex` metamethod
     NewIndex,
-    /// Equivalent to the `__add` metamethod
     Add,
-    /// Equivalent to the `__sub` metamethod
     Sub,
-    /// Equivalent to the `__mul` metamethod
     Mul,
-    /// Equivalent to the `__div` metamethod
     Div,
-    /// Equivalent to the `__mod` metamethod
     Mod,
-    /// Equivalent to the `__pow` metamethod
     Pow,
-    /// Equivalent to the `__unm` metamethod
     Unm,
-    /// Equivalent to the `__concat` metamethod
     Concat,
-    /// Equivalent to the `__len` metamethod
     Len,
-    /// Equivalent to the `__eq` metamethod
     Eq,
-    /// Equivalent to the `__lt` metamethod
     Lt,
-    /// Equivalent to the `__le` metamethod
     Le,
-    /// Equivalent to the `__call` metamethod
     Call,
 }
 
@@ -228,7 +211,10 @@ where
 {
     #[inline]
     unsafe fn from_lua(state: &'a LuaState, idx: Index) -> Result<Self> {
-        let pointer = ffi::lua_touserdata(state.pointer, idx.as_absolute()) as *const D;
+        //let pointer = ffi::lua_touserdata(state.pointer, idx.as_absolute()) as *const D;
+        let meta = CString::new(D::METATABLE).unwrap();
+        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _) as *const D;
+
         if pointer.is_null() {
             return Err(Error::Type);
         }
@@ -237,7 +223,8 @@ where
 
     #[inline]
     unsafe fn check(state: &LuaState, idx: Index) -> bool {
-        unimplemented!()
+        let meta = CString::new(D::METATABLE).unwrap();
+        !ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _).is_null()
     }
 }
 

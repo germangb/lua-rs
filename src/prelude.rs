@@ -3,5 +3,5 @@ pub use super::{
     functions::{LuaFunction, LuaFunctionWrapper},
     index::Index,
     userdata::{LuaUserData, LuaUserDataWrapper, Ref, RefMut, Meta, Metamethod},
-    IntoLua, LuaGc, LuaState, Nil, Table,
+    IntoLua, LuaGc, LuaState, Nil, Table, LuaLib,
 };
