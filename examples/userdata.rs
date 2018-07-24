@@ -19,7 +19,7 @@ impl LuaFunction for DebugFoo {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Foo {
     bar: i32,
     baz: String,
@@ -44,5 +44,5 @@ fn main() {
     state.push(lua_function!(DebugFoo)).unwrap();
     state.set_global("debug");
 
-    state.eval("print('debug(foo) = ', debug(foo))").unwrap();
+    state.eval("print(foo)").unwrap();
 }

@@ -5,8 +5,8 @@ macro_rules! impl_numbers {
     ($($type:ty),+) => {
         $(impl IntoLua for $type {
             #[inline]
-            unsafe fn into_lua(&self, state: &mut LuaState) {
-                ffi::lua_pushinteger(state.pointer, *self as _);
+            unsafe fn into_lua(self, state: &mut LuaState) {
+                ffi::lua_pushinteger(state.pointer, self as _);
             }
         })+
         $(impl<'a> FromLua<'a> for $type {
@@ -30,8 +30,8 @@ macro_rules! impl_integers {
     ($($type:ty),+) => {
         $(impl IntoLua for $type {
             #[inline]
-            unsafe fn into_lua(&self, state: &mut LuaState) {
-                ffi::lua_pushnumber(state.pointer, *self as _);
+            unsafe fn into_lua(self, state: &mut LuaState) {
+                ffi::lua_pushnumber(state.pointer, self as _);
             }
         })+
         $(impl<'a> FromLua<'a> for $type {
@@ -59,8 +59,8 @@ impl_numbers!{ f32, f64 }
 
 impl IntoLua for bool {
     #[inline]
-    unsafe fn into_lua(&self, state: &mut LuaState) {
-        if *self {
+    unsafe fn into_lua(self, state: &mut LuaState) {
+        if self {
             ffi::lua_pushboolean(state.pointer, 1);
         } else {
             ffi::lua_pushboolean(state.pointer, 0);

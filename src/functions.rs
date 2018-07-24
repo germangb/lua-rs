@@ -27,7 +27,7 @@ where
     E: fmt::Display,
     F: LuaFunction<Error = E>,
 {
-    unsafe fn into_lua(&self, state: &mut LuaState) {
+    unsafe fn into_lua(self, state: &mut LuaState) {
         ffi::lua_pushcfunction(state.pointer, Some(function::<F, E>));
     }
 }

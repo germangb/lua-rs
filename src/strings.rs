@@ -7,7 +7,7 @@ macro_rules! impl_string {
     ($(ref $type:ty),+) => {
         $(impl<'a> IntoLua for &'a $type {
             #[inline]
-            unsafe fn into_lua(&self, state: &mut LuaState) {
+            unsafe fn into_lua(self, state: &mut LuaState) {
                 ffi::lua_pushlstring(state.pointer, self.as_ptr() as _, self.len() as _);
             }
         })+
@@ -15,7 +15,7 @@ macro_rules! impl_string {
     ($($type:ty),+) => {
         $(impl IntoLua for $type {
             #[inline]
-            unsafe fn into_lua(&self, state: &mut LuaState) {
+            unsafe fn into_lua(self, state: &mut LuaState) {
                 ffi::lua_pushlstring(state.pointer, self.as_ptr() as _, self.len() as _);
             }
         })+

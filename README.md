@@ -58,7 +58,7 @@ state.set_global("square");
 state.eval("len = square(4)").unwrap(); // len = 16
 ```
 
-### Userdata
+### Custom types 
 
 ```rust
 #[macro_use]
@@ -66,23 +66,7 @@ extern crate lua;
 
 use lua::prelude::*;
 
-struct DebugFoo;
-
-impl LuaFunction for DebugFoo {
-    type Error = Error;
-
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let debug = {
-            let data: Ref<Foo> = state.get(1)?;
-            format!("{:?}", *data)
-        };
-
-        state.push(debug)?;
-        Ok(1)
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Foo {
     bar: i32,
     baz: String,
@@ -105,8 +89,5 @@ let data = Foo {
 state.push(lua_userdata!(data)).unwrap();
 state.set_global("foo");
 
-state.push(lua_function!(DebugFoo)).unwrap();
-state.set_global("debug");
-
-state.eval("print('debug(foo) = ', debug(foo))").unwrap();
+state.eval("print(foo)").unwrap();
 ```

@@ -40,7 +40,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub struct Nil;
 
 impl IntoLua for Nil {
-    unsafe fn into_lua(&self, state: &mut LuaState) {
+    unsafe fn into_lua(self, state: &mut LuaState) {
         ffi::lua_pushnil(state.pointer);
     }
 }
@@ -66,7 +66,7 @@ impl<'a> FromLua<'a> for Nil {
 pub struct Table;
 
 impl IntoLua for Table {
-    unsafe fn into_lua(&self, state: &mut LuaState) {
+    unsafe fn into_lua(self, state: &mut LuaState) {
         ffi::lua_newtable(state.pointer);
     }
 }
@@ -86,7 +86,7 @@ pub struct LuaGc<'a> {
 
 /// Trait for types that can be pushed to the lua stack
 pub trait IntoLua {
-    unsafe fn into_lua(&self, state: &mut LuaState);
+    unsafe fn into_lua(self, state: &mut LuaState);
 }
 
 /// Trait for types that can be read from the lua stack
@@ -96,6 +96,12 @@ pub trait FromLua<'a>: Sized {
 
     /// Check if the valuea the given index is of this type
     unsafe fn check(&LuaState, Index) -> bool;
+}
+
+/// Trait to mutate userdata types
+pub trait FromLuaMut<'a>: Sized {
+    /// Read the value
+    unsafe fn from_lua_mut(&'a mut LuaState, Index) -> Result<Self>;
 }
 
 impl LuaState {
@@ -213,6 +219,15 @@ impl LuaState {
         I: Into<Index>,
     {
         unsafe { T::from_lua(self, idx.into()) }
+    }
+
+    #[inline]
+    pub fn get_mut<'a, T, I>(&'a mut self, idx: I) -> Result<T>
+    where
+        T: FromLuaMut<'a>,
+        I: Into<Index>,
+    {
+        unsafe { T::from_lua_mut(self, idx.into()) }
     }
 
     #[inline]
