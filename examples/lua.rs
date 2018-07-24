@@ -12,8 +12,9 @@ fn main() {
     let mut state = LuaState::new();
 
     state.open_libs();
-    example::load(&mut state).unwrap();
-    vector::load_lib(&mut state).unwrap();
+
+    vector::load_lib("vec", &mut state).unwrap();
+    example::load_lib("rust", &mut state).unwrap();
 
     // evaluate file from first argument
     if let Some(file) = env::args().nth(1) {

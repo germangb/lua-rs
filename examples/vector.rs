@@ -9,7 +9,7 @@ use lua::prelude::*;
 fn main() {
     let mut lua = LuaState::new();
     lua.open_libs();
-    vector::load_lib(&mut lua);
+    vector::load_lib("vec", &mut state).unwrap();
 
     if let Err(_) = lua.eval(include_str!("vector.lua")) {
         let error_msg: &str = lua.get(-1).unwrap();

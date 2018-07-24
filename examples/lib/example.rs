@@ -4,6 +4,12 @@ pub struct FnError; // raises a lua runtime error
 pub struct FnAdd;   // adds two integers
 pub struct FnLen;   // returns the length of a string
 
+lua_library! {
+    FnError => "error",
+    FnAdd => "add",
+    FnLen => "len"
+}
+
 impl LuaFunction for FnError {
     type Error = &'static str;
 
@@ -42,19 +48,3 @@ impl LuaFunction for FnLen {
         Ok(1)
     }
 }
-
-pub fn load(state: &mut LuaState) -> Result<(), Error> {
-    state.push(Table)?;
-    state.push("error");
-    state.push(lua_function!(FnError))?;
-    state.set_table(-3);
-    state.push("add")?;
-    state.push(lua_function!(FnAdd))?;
-    state.set_table(-3);
-    state.push("len")?;
-    state.push(lua_function!(FnLen))?;
-    state.set_table(-3);
-    state.set_global("rust");
-    Ok(())
-}
-
