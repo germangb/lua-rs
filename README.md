@@ -9,85 +9,68 @@
 ## Examples
 
 ```bash
-# Run an interactive lua shell
-$ cargo run --example lua
+# Run an interactive lua shell ([FILE] is optional)
+$ cargo run --example lua [FILE]
 ```
 
-### Evaluate Lua code
+### Functions
+
+Types that implement the `LuaFunction` trait can be used as lua functions:
 
 ```rust
-extern crate lua;
-
 use lua::prelude::*;
 
-let mut state = LuaState::new();
+// A type for a function that returns the length of a string
+struct StringLength;
 
-state.eval("bar = 2.3").unwrap();
-
-state.get_global("bar");
-println!("bar = {}", state.get::<f64>(-1).unwrap());
-```
-
-### Call Rust functions from Lua
-
-```rust
-#[macro_use]
-extern crate lua;
-
-use lua::prelude::*;
-
-struct Square;
-
-impl LuaFunction for Square {
+impl LuaFunction for StringLength {
     type Error = Error;
-    
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let n: f64 = state.get(1)?;
-        state.push(n*n)?;
+
+    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+        let length = state.get(1).map(|s: &str| s.len())?;
+        state.push(length)?;
         Ok(1)
     }
 }
 
 let mut state = LuaState::new();
 
-// register function
-state.push(lua_function!(Square)).unwrap();
-state.set_global("square");
+state.push(lua_function!(LuaFunction)).unwrap();
+state.set_global("length");
 
-// call from Lua
-state.eval("len = square(4)").unwrap(); // len = 16
+state.eval("len = length('hello world')").unwrap(); // len = 11
 ```
 
-### Custom types 
+### Custom Userdata
+
+Any type that implements the `LuaUserData` trait can be used as [userdata](https://www.lua.org/pil/28.1.html). When a type is moved into the stack, the `LuaState` becomes its owner and will eventually be dropped by the garbage collector.
+
+For a more complete example, including setting up metamethods, see [this example](./examples/lib/vector.rs).
 
 ```rust
-#[macro_use]
-extern crate lua;
-
 use lua::prelude::*;
 
 #[derive(Debug)]
 struct Foo {
-    bar: i32,
+    bar: Vec<i32>,
     baz: String,
 }
 
 impl LuaUserData for Foo {
+    // An identifier, unique to the Type
     const METATABLE: &'static str = "Example.foo";
 }
-```
 
-```rust
 let mut state = LuaState::new();
-state.open_libs();
 
-let data = Foo {
-    bar: 32,
-    baz: String::from("hello world"),
-};
+state.push(lua_userdata!(Foo {
+    bar: vec![0; 16],
+    baz: String::from("Hello world!"),
+})).unwrap();
 
-state.push(lua_userdata!(data)).unwrap();
-state.set_global("foo");
+// Get a reference to the stack
+let foo: Ref<Foo> = state.get(-1).unwrap();
 
-state.eval("print(foo)").unwrap();
+// To get a mutable reference, use this instead:
+// let mut foomut: RefMut<Foo> = state.get_mut(-1).unwrap();
 ```

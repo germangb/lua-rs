@@ -5,4 +5,3 @@ pub mod vector;
 
 /// Functions demo
 pub mod example;
-

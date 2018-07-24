@@ -1,8 +1,8 @@
 use lua::prelude::*;
 
 pub struct FnError; // raises a lua runtime error
-pub struct FnAdd;   // adds two integers
-pub struct FnLen;   // returns the length of a string
+pub struct FnAdd; // adds two integers
+pub struct FnLen; // returns the length of a string
 
 lua_library! {
     FnError => "error",
@@ -20,7 +20,7 @@ impl LuaFunction for FnError {
 
 impl FnAdd {
     fn add(a: i32, b: i32) -> i32 {
-        a+b
+        a + b
     }
 }
 

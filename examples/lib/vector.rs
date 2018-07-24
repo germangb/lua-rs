@@ -3,16 +3,22 @@ use lua::prelude::*;
 #[derive(Debug)]
 struct Vector(Vec<i32>);
 
+impl Drop for Vector {
+    fn drop(&mut self) {
+        println!("Dropping Vector...");
+    }
+}
+
 // --------------------------------
 // Functions & Metamethods
 // --------------------------------
 
-struct ToString;    // `__tostring` metamethod
-struct Length;      // `__len` metamethod
-struct Get;         // Function to return values from the Vector
-                    // This function is also set as the `__index` metamethod
-struct New;         // Function to create a new Vector
-struct Insert;      // Function to append values to Vector
+struct ToString; // `__tostring` metamethod
+struct Length; // `__len` metamethod
+struct Get; // Function to return values from the Vector
+            // This function is also set as the `__index` metamethod
+struct New; // Function to create a new Vector
+struct Insert; // Function to append values to Vector
 
 impl LuaUserData for Vector {
     const METATABLE: &'static str = "Vector.Vector";
@@ -87,8 +93,7 @@ impl LuaFunction for Get {
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
         let index: usize = state.get(2)?;
-        let value = state.get(1).ok()
-            .and_then(|s: Ref<Vector>| s.get(index));
+        let value = state.get(1).ok().and_then(|s: Ref<Vector>| s.get(index));
 
         state.push(value);
         Ok(1)
@@ -99,8 +104,7 @@ impl LuaFunction for Length {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let len = state.get(1)
-            .map(|s: Ref<Vector>| s.len())?;
+        let len = state.get(1).map(|s: Ref<Vector>| s.len())?;
 
         state.push(len);
         Ok(1)

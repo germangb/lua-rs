@@ -6,7 +6,7 @@ mod lib;
 use lib::{example, vector};
 use lua::prelude::*;
 
-use std::{fs, io, env};
+use std::{env, fs, io};
 
 fn main() {
     let mut state = LuaState::new();
@@ -27,11 +27,12 @@ fn main() {
     let mut source = String::new();
 
     loop {
-        let read = read_line(&mut stdin, &mut source);
+        let bytes_read = read_line(&mut stdin, &mut source);
 
-        match state.eval(&source) {
-            Ok(_) => source.clear(),
-            Err(Error::Runtime) => {
+        match (bytes_read, state.eval(&source)) {
+            (_, Ok(_)) => source.clear(),
+            (b, Err(Error::Syntax)) if b > 0 => state.pop(1),
+            (_, Err(Error::Runtime)) | (_, Err(Error::Syntax)) => {
                 {
                     let error: &str = state.get(-1).unwrap();
                     eprintln!("ERROR: {:?}", error);
@@ -39,15 +40,7 @@ fn main() {
                 state.pop(1);
                 source.clear();
             }
-            Err(Error::Syntax) => {
-                if read == 0 {
-                    source.clear();
-                    let error: &str = state.get(-1).unwrap();
-                    eprintln!("ERROR: {:?}", error);
-                }
-                state.pop(1);
-            },
-            Err(err) => panic!("{:?}", err),
+            _ => panic!(),
         }
     }
 }
@@ -72,7 +65,9 @@ fn splash() {
     eprintln!("# Welcome to the Lua shell! (written in Rust)");
     eprintln!();
     eprintln!("The following Rust functions can be called from the shell:");
-    eprintln!("  * rust.error() - Raises a runtime error. The error message is also formatted in rust");
+    eprintln!(
+        "  * rust.error() - Raises a runtime error. The error message is also formatted in rust"
+    );
     eprintln!("  * rust.add(a, b) - Returns the sum of `a` and `b`");
     eprintln!("  * rust.len(c) - Returns the length of the string `c`");
     eprintln!();
