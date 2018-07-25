@@ -25,7 +25,7 @@ pub mod strings;
 pub mod userdata;
 
 use functions::LuaFunction;
-use userdata::{LuaUserData, Ref};
+use userdata::{LuaUserData, FromLuaData};
 
 use error::Error;
 use ffi::AsCStr;
@@ -288,10 +288,10 @@ impl LuaState {
 
     pub fn get_udata<T, I>(&self, idx: I) -> Result<&T>
     where
-        T: LuaUserData,
+        T: FromLuaData,
         I: Into<Index>,
     {
-        unimplemented!()
+        unsafe { T::from_lua(self, idx.into()) }
     }
 
     pub fn get_udata_mut<T, I>(&self, idx: I) -> Result<&mut T>
@@ -374,11 +374,18 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn get_global<N>(&mut self, n: N)
+    pub fn get_global<N>(&mut self, n: N) -> Result<()>
     where
         N: AsCStr,
     {
-        unsafe { ffi::lua_getglobal(self.pointer, n.as_cstr().as_ptr()) };
+        unsafe {
+            if ffi::lua_checkstack(self.pointer, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_getglobal(self.pointer, n.as_cstr().as_ptr());
+                Ok(())
+            }
+        }
     }
 
     #[inline]

@@ -43,7 +43,7 @@ state.eval("len = length('hello world')").unwrap(); // len = 11
 
 ### Custom Userdata
 
-Any type that implements the `LuaUserData` trait can be used as [userdata](https://www.lua.org/pil/28.1.html). When a type is moved into the stack, the `LuaState` becomes its owner and will eventually be dropped by the garbage collector.
+Types that implements the `LuaUserData` trait can be used as [userdata](https://www.lua.org/pil/28.1.html). When a type is moved into the stack, the `LuaState` becomes its owner and will eventually be dropped by the garbage collector.
 
 For a more complete example, including setting up metamethods, see [this example](./examples/lib/vector.rs).
 
@@ -69,8 +69,8 @@ state.push_udata(Foo {
 }).unwrap();
 
 // Get a reference to the stack
-let foo: Ref<Foo> = state.get(-1).unwrap();
+let foo: &Foo = state.get_udata(-1).unwrap();
 
 // To get a mutable reference, use this instead:
-// let foomut: RefMut<Foo> = state.get_mut(-1).unwrap();
+// let foomut: &mut Foo = state.get_udata_mut(-1).unwrap();
 ```

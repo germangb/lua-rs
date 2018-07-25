@@ -11,11 +11,7 @@ impl LuaFunction for DebugFoo {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let debug = {
-            let data: Ref<Foo> = state.get(1)?;
-            format!("{:?}", *data)
-        };
-
+        let debug = format!("{:?}", state.get_udata::<Foo, _>(1)?);
         state.push(debug)?;
         Ok(1)
     }
@@ -57,4 +53,8 @@ fn main() {
     state.set_global("debug");
 
     state.eval("print(debug(foo))").unwrap();
+
+    state.get_global("foo").unwrap();
+    let datum: &Foo = state.get_udata(-1).unwrap();
+    println!("{:?}", datum);
 }

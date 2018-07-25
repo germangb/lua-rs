@@ -9,6 +9,58 @@ use std::os::raw;
 use std::rc::Rc;
 use std::{mem, ops, ptr};
 
+/// Type to implement Lua userdata, which is an arbitrary block of memory managed by Lua
+pub trait LuaUserData {
+    /// Name of the metatable
+    const METATABLE: &'static str;
+
+    /// Called only once to register the metamethods of the type.
+    fn register(meta: &mut Meta) {}
+}
+
+/// Trait to read userdatums from Lua
+pub trait FromLuaData {
+    /// Get a reference
+    unsafe fn from_lua(state: &LuaState, idx: Index) -> Result<&Self>;
+
+    /// Get a mutable reference
+    unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self>;
+}
+
+impl<T: LuaUserData> FromLuaData for T {
+    /// Get a reference
+    unsafe fn from_lua(state: &LuaState, idx: Index) -> Result<&Self> {
+        if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
+            return Err(Error::Type);
+        }
+
+        let meta = CString::new(T::METATABLE).unwrap();
+        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _);
+
+        if pointer.is_null() {
+            return Err(Error::Type);
+        }
+
+        Ok(mem::transmute(pointer as *const T))
+    }
+
+    /// Get a mutable reference
+    unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self> {
+        if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
+            return Err(Error::Type);
+        }
+
+        let meta = CString::new(T::METATABLE).unwrap();
+        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _);
+
+        if pointer.is_null() {
+            return Err(Error::Type);
+        }
+
+        Ok(mem::transmute(pointer as *mut T))
+    }
+}
+
 #[doc(hidden)]
 pub struct LuaUserDataWrapper<T>(pub T);
 
@@ -95,52 +147,6 @@ impl Meta {
     }
 }
 
-/// Type to implement Lua userdata, which is an arbitrary block of memory managed by Lua
-pub trait LuaUserData {
-    /// Name of the metatable
-    const METATABLE: &'static str;
-
-    /// Called only once to register the metamethods of the type.
-    fn register(meta: &mut Meta) {}
-}
-
-/// Immutable reference to a userdatum
-pub struct Ref<'a, T> {
-    state: &'a LuaState,
-    pointer: *const T,
-}
-
-/// Reference to a userdatum that allows mutation
-pub struct RefMut<'a, T> {
-    state: &'a LuaState,
-    pointer: *mut T,
-}
-
-impl<'a, T> ops::Deref for Ref<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        unsafe { mem::transmute(self.pointer) }
-    }
-}
-
-impl<'a, T> ops::Deref for RefMut<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        unsafe { mem::transmute(self.pointer) }
-    }
-}
-
-impl<'a, T> ops::DerefMut for RefMut<'a, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { mem::transmute(self.pointer) }
-    }
-}
-
 impl<F> LuaUserDataWrapper<F> {
     #[inline]
     pub fn wrap(f: F) -> Self {
@@ -200,46 +206,5 @@ where
             1
         }
         */
-    }
-}
-
-impl<'a, D> FromLua<'a> for Ref<'a, D>
-where
-    D: LuaUserData,
-{
-    #[inline]
-    unsafe fn from_lua(state: &'a LuaState, idx: Index) -> Result<Self> {
-        //let pointer = ffi::lua_touserdata(state.pointer, idx.as_absolute()) as *const D;
-        let meta = CString::new(D::METATABLE).unwrap();
-        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _) as *const D;
-
-        if pointer.is_null() {
-            return Err(Error::Type);
-        }
-        Ok(Ref { state, pointer })
-    }
-
-    #[inline]
-    unsafe fn check(state: &LuaState, idx: Index) -> bool {
-        let meta = CString::new(D::METATABLE).unwrap();
-        !ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _).is_null()
-    }
-}
-
-impl<'a, D> FromLuaMut<'a> for RefMut<'a, D>
-where
-    D: LuaUserData,
-{
-    #[inline]
-    unsafe fn from_lua_mut(state: &'a mut LuaState, idx: Index) -> Result<Self> {
-        //let pointer = ffi::lua_touserdata(state.pointer, idx.as_absolute()) as *const D;
-        let meta = CString::new(D::METATABLE).unwrap();
-        let pointer = ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _) as *mut D;
-
-        if pointer.is_null() {
-            Err(Error::Type)
-        } else {
-            Ok(RefMut { state, pointer })
-        }
     }
 }

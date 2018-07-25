@@ -52,7 +52,7 @@ impl LuaFunction for ToString {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let string = state.get(1).map(|v: Ref<Vector>| format!("{:?}", *v))?;
+        let string = state.get_udata(1).map(|v: &Vector| format!("{:?}", v))?;
         state.push(string)?;
         Ok(1)
     }
@@ -76,7 +76,7 @@ impl LuaFunction for Insert {
         {
             let index: usize = state.get(2)?;
             let value: i32 = state.get(3)?;
-            let mut vector: RefMut<Vector> = state.get_mut(1)?;
+            let vector: &mut Vector = state.get_udata_mut(1)?;
 
             if index < vector.len() {
                 vector.set(index, value);
@@ -93,9 +93,9 @@ impl LuaFunction for Get {
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
         let index: usize = state.get(2)?;
-        let value = state.get(1).ok().and_then(|s: Ref<Vector>| s.get(index));
+        let value = state.get_udata(1).map(|s: &Vector| s.get(index));
 
-        state.push(value);
+        state.push(value?);
         Ok(1)
     }
 }
@@ -104,7 +104,7 @@ impl LuaFunction for Length {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let len = state.get(1).map(|s: Ref<Vector>| s.len())?;
+        let len = state.get_udata(1).map(|s: &Vector| s.len())?;
 
         state.push(len);
         Ok(1)
