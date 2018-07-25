@@ -2,40 +2,33 @@ use {ffi, Error, IntoLua, LuaState, Result};
 
 use std::fmt;
 use std::os::raw;
+use std::marker::PhantomData;
+use std::fmt::Display;
 
 #[doc(hidden)]
-pub struct LuaFunctionWrapper<T>(T);
-
-impl<F> LuaFunctionWrapper<F> {
-    #[inline]
-    pub fn wrap(f: F) -> Self {
-        LuaFunctionWrapper(f)
-    }
-}
+pub struct LuaFunctionWrapper<T>(pub PhantomData<T>);
 
 /// Trait to implement functions that can be called from Lua
 pub trait LuaFunction {
     /// Error reported by the function
-    type Error;
+    type Error: Display;
 
     /// Implement the call
     fn call(state: &mut LuaState) -> ::std::result::Result<usize, Self::Error>;
 }
 
-impl<F, E> IntoLua for LuaFunctionWrapper<F>
+impl<F> IntoLua for LuaFunctionWrapper<F>
 where
-    E: fmt::Display,
-    F: LuaFunction<Error = E>,
+    F: LuaFunction,
 {
     unsafe fn into_lua(self, state: &mut LuaState) {
-        ffi::lua_pushcfunction(state.pointer, Some(function::<F, E>));
+        ffi::lua_pushcfunction(state.pointer, Some(function::<F>));
     }
 }
 
-extern "C" fn function<F, E>(state: *mut ffi::lua_State) -> raw::c_int
+extern "C" fn function<F>(state: *mut ffi::lua_State) -> raw::c_int
 where
-    E: fmt::Display,
-    F: LuaFunction<Error = E>,
+    F: LuaFunction,
 {
     let mut pointer = LuaState {
         owned: false,

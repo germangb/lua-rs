@@ -13,21 +13,21 @@ impl Drop for Vector {
 // Functions & Metamethods
 // --------------------------------
 
-struct ToString; // `__tostring` metamethod
-struct Length; // `__len` metamethod
-struct Get; // Function to return values from the Vector
-            // This function is also set as the `__index` metamethod
-struct New; // Function to create a new Vector
-struct Insert; // Function to append values to Vector
+enum New {}         // Function to create a new Vector
+
+enum ToString {}    // `__tostring` metamethod
+enum Length {}      // `__len` metamethod
+enum Get {}         // `__index` metamethod
+enum Insert {}      // `__newindex` metamethid
 
 impl LuaUserData for Vector {
     const METATABLE: &'static str = "Vector.Vector";
 
     fn register(meta: &mut Meta) {
-        meta.set(Metamethod::ToString, ToString);
-        meta.set(Metamethod::Len, Length);
-        meta.set(Metamethod::Index, Get);
-        meta.set(Metamethod::NewIndex, Insert);
+        meta.set::<ToString>(Metamethod::ToString);
+        meta.set::<Length>(Metamethod::Len);
+        meta.set::<Get>(Metamethod::Index);
+        meta.set::<Insert>(Metamethod::NewIndex);
     }
 }
 

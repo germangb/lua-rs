@@ -1,8 +1,8 @@
 use lua::prelude::*;
 
-pub struct FnError; // raises a lua runtime error
-pub struct FnAdd; // adds two integers
-pub struct FnLen; // returns the length of a string
+enum FnError {} // raises a lua runtime error
+enum FnAdd {}   // adds two integers
+enum FnLen {}   // returns the length of a string
 
 lua_library! {
     FnError => "error",

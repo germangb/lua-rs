@@ -1,3 +1,4 @@
+#[macro_use]
 pub mod macros;
 
 /// Error types
@@ -23,11 +24,14 @@ pub mod strings;
 /// Utilities to work with Lua userdata
 pub mod userdata;
 
+use functions::LuaFunction;
+use userdata::{LuaUserData, Ref};
+
 use error::Error;
 use ffi::AsCStr;
 use index::Index;
 
-use std::{fs::File, io::Read, path::Path, str};
+use std::{fs::File, io::Read, path::Path, str, fmt};
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -253,6 +257,21 @@ impl LuaState {
     }
 
     #[inline]
+    pub fn push_function<F>(&mut self) -> Result<()>
+    where
+        F: LuaFunction,
+    {
+        self.push(lua_function!(F))
+    }
+
+    pub fn push_udata<U>(&mut self, data: U) -> Result<()>
+    where
+        U: LuaUserData,
+    {
+        self.push(lua_userdata!(data))
+    }
+
+    #[inline]
     pub fn push<T>(&mut self, value: T) -> Result<()>
     where
         T: IntoLua,
@@ -265,6 +284,22 @@ impl LuaState {
                 Ok(())
             }
         }
+    }
+
+    pub fn get_udata<T, I>(&self, idx: I) -> Result<&T>
+    where
+        T: LuaUserData,
+        I: Into<Index>,
+    {
+        unimplemented!()
+    }
+
+    pub fn get_udata_mut<T, I>(&self, idx: I) -> Result<&mut T>
+    where
+        T: LuaUserData,
+        I: Into<Index>,
+    {
+        unimplemented!()
     }
 
     #[inline]

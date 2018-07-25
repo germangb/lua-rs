@@ -7,7 +7,7 @@ use ffi::AsCStr;
 use std::ffi::CString;
 use std::os::raw;
 use std::rc::Rc;
-use std::{fmt, mem, ops, ptr};
+use std::{mem, ops, ptr};
 
 #[doc(hidden)]
 pub struct LuaUserDataWrapper<T>(pub T);
@@ -62,20 +62,18 @@ impl Metamethod {
 
 impl Meta {
     /// Register a metamethod
-    pub fn set<E, F>(&mut self, method: Metamethod, value: F)
+    pub fn set<F>(&mut self, method: Metamethod)
     where
-        E: fmt::Display,
-        F: LuaFunction<Error=E>,
+        F: LuaFunction,
     {
         unsafe {
             ffi::lua_pushstring(self.0, method.as_cstr().as_ptr() as _);
-            ffi::lua_pushcfunction(self.0, Some(__metamethod::<F, E>));
+            ffi::lua_pushcfunction(self.0, Some(__metamethod::<F>));
             ffi::lua_settable(self.0, -3);
 
-            extern "C" fn __metamethod<F, E>(state: *mut ffi::lua_State) -> raw::c_int
+            extern "C" fn __metamethod<F>(state: *mut ffi::lua_State) -> raw::c_int
             where
-                E: fmt::Display,
-                F: LuaFunction<Error = E>,
+                F: LuaFunction,
             {
                 let mut pointer = LuaState {
                     owned: false,
@@ -152,7 +150,7 @@ impl<F> LuaUserDataWrapper<F> {
 
 impl<D> IntoLua for LuaUserDataWrapper<D>
 where
-    D: LuaUserData + fmt::Debug,
+    D: LuaUserData,
 {
     unsafe fn into_lua(self, state: &mut LuaState) {
         let data = self.0;

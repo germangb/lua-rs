@@ -1,8 +1,8 @@
 /// Wraps a generic type into a `LuaFunctionWrapper`.
 #[macro_export]
 macro_rules! lua_function {
-    ($eval:expr) => {
-        $crate::functions::LuaFunctionWrapper::wrap($eval)
+    ($eval:ty) => {
+        $crate::functions::LuaFunctionWrapper(::std::marker::PhantomData::<$eval>)
     };
 }
 
@@ -18,13 +18,13 @@ macro_rules! lua_userdata {
 /// and assigns it to a global variable.
 #[macro_export]
 macro_rules! lua_library {
-    ( $($fn_struct:ident => $fn_name:expr ),+ ) => {
+    ( $($fn:ty => $fn_name:expr ),+ ) => {
         pub fn load_lib<N: $crate::ffi::AsCStr>(name: N, state: &mut $crate::LuaState) -> $crate::Result<()> {
             state.push(Table)?;
 
             $(
             state.push($fn_name)?;
-            state.push(lua_function!($fn_struct))?;
+            state.push_function::<$fn>()?;
             state.set_table(-3);
             )+
 

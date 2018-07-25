@@ -20,8 +20,8 @@ Types that implement the `LuaFunction` trait can be used as lua functions:
 ```rust
 use lua::prelude::*;
 
-// A type for a function that returns the length of a string
-struct StringLength;
+// A Type for a function that returns the length of a string
+enum StringLength {}
 
 impl LuaFunction for StringLength {
     type Error = Error;
@@ -35,7 +35,7 @@ impl LuaFunction for StringLength {
 
 let mut state = LuaState::new();
 
-state.push(lua_function!(LuaFunction)).unwrap();
+state.push_function::<StringLength>().unwrap();
 state.set_global("length");
 
 state.eval("len = length('hello world')").unwrap(); // len = 11
@@ -63,14 +63,14 @@ impl LuaUserData for Foo {
 
 let mut state = LuaState::new();
 
-state.push(lua_userdata!(Foo {
+state.push_udata(Foo {
     bar: vec![0; 16],
     baz: String::from("Hello world!"),
-})).unwrap();
+}).unwrap();
 
 // Get a reference to the stack
 let foo: Ref<Foo> = state.get(-1).unwrap();
 
 // To get a mutable reference, use this instead:
-// let mut foomut: RefMut<Foo> = state.get_mut(-1).unwrap();
+// let foomut: RefMut<Foo> = state.get_mut(-1).unwrap();
 ```

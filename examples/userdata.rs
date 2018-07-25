@@ -3,7 +3,9 @@ extern crate lua;
 
 use lua::prelude::*;
 
-struct DebugFoo;
+use std::rc::Rc;
+
+enum DebugFoo {}
 
 impl LuaFunction for DebugFoo {
     type Error = Error;
@@ -20,9 +22,18 @@ impl LuaFunction for DebugFoo {
 }
 
 #[derive(Debug)]
+struct Field;
+
+impl Drop for Field {
+    fn drop(&mut self) {
+        println!("drop the field");
+    }
+}
+
+#[derive(Debug)]
 struct Foo {
     bar: i32,
-    baz: String,
+    baz: Rc<Field>,
 }
 
 impl LuaUserData for Foo {
@@ -33,16 +44,17 @@ fn main() {
     let mut state = LuaState::new();
     state.open_libs();
 
-    let data = Foo {
-        bar: 32,
-        baz: String::from("hello world"),
-    };
+    let baz = Rc::new(Field);
 
-    state.push(lua_userdata!(data)).unwrap();
+    state.push_udata(Foo {
+        bar: 32,
+        baz: Rc::clone(&baz),
+    }).unwrap();
+
     state.set_global("foo");
 
-    state.push(lua_function!(DebugFoo)).unwrap();
+    state.push_function::<DebugFoo>().unwrap();
     state.set_global("debug");
 
-    state.eval("print(foo)").unwrap();
+    state.eval("print(debug(foo))").unwrap();
 }
