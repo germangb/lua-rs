@@ -1,5 +1,7 @@
 use index::Index;
-use {ffi, Error, FromLua, FromLuaMut, IntoLua, LuaState, Result};
+use {ffi, Error, CheckLua, IntoLua, LuaState, Result};
+
+use functions;
 use functions::LuaFunction;
 
 use ffi::AsCStr;
@@ -25,6 +27,13 @@ pub trait FromLuaData {
 
     /// Get a mutable reference
     unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self>;
+}
+
+impl<T: LuaUserData> CheckLua for T {
+    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+        let meta = CString::new(T::METATABLE).unwrap();
+        !ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _).is_null()
+    }
 }
 
 impl<T: LuaUserData> FromLuaData for T {
@@ -67,48 +76,42 @@ pub struct LuaUserDataWrapper<T>(pub T);
 /// Type used to register userdata metamethods from the `LuaUserData` trait.
 pub struct Meta(*mut ffi::lua_State);
 
-/// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Metamethod {
-    ToString,
-    Index,
-    NewIndex,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Pow,
-    Unm,
-    Concat,
-    Len,
-    Eq,
-    Lt,
-    Le,
-    Call,
+macro_rules! impl_meta {
+    (pub enum $name:ident { $( $variant:ident => $meta:expr ,)+ }) => {
+        /// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+        pub enum Metamethod {
+            $($variant,)+
+        }
+        impl Metamethod {
+            #[inline]
+            fn as_cstr(&self) -> &str {
+                match *self {
+                    $(Metamethod::$variant => concat!($meta, "\0"),)+
+                }
+            }
+        }
+    }
 }
 
-impl Metamethod {
-    #[inline]
-    fn as_cstr(&self) -> &str {
-        match *self {
-            Metamethod::ToString => "__tostring\0",
-            Metamethod::Index => "__index\0",
-            Metamethod::NewIndex => "__newindex\0",
-            Metamethod::Add => "__add\0",
-            Metamethod::Sub => "__sub\0",
-            Metamethod::Mul => "__mul\0",
-            Metamethod::Div => "__div\0",
-            Metamethod::Mod => "__mod\0",
-            Metamethod::Pow => "__pow\0",
-            Metamethod::Unm => "__unm\0",
-            Metamethod::Concat => "__concat\0",
-            Metamethod::Len => "__len\0",
-            Metamethod::Eq => "__eq\0",
-            Metamethod::Lt => "__lt\0",
-            Metamethod::Le => "__le\0",
-            Metamethod::Call => "__call\0",
-        }
+impl_meta! {
+    pub enum Metamethod {
+        ToString => "__tostring",
+        Index => "__index",
+        NewIndex => "__newindex",
+        Add => "__add",
+        Sub => "__sub",
+        Mul => "__mul",
+        Div => "__div",
+        Mod => "__mod",
+        Pow => "__pow",
+        Unm => "__unm",
+        Concat => "__concat",
+        Len => "__len",
+        Eq => "__eq",
+        Lt => "__lt",
+        Le => "__le",
+        Call => "__call",
     }
 }
 
@@ -120,37 +123,9 @@ impl Meta {
     {
         unsafe {
             ffi::lua_pushstring(self.0, method.as_cstr().as_ptr() as _);
-            ffi::lua_pushcfunction(self.0, Some(__metamethod::<F>));
+            ffi::lua_pushcfunction(self.0, Some(functions::function::<F>));
             ffi::lua_settable(self.0, -3);
-
-            extern "C" fn __metamethod<F>(state: *mut ffi::lua_State) -> raw::c_int
-            where
-                F: LuaFunction,
-            {
-                let mut pointer = LuaState {
-                    owned: false,
-                    pointer: state,
-                };
-
-                match F::call(&mut pointer) {
-                    Ok(n) => n as _,
-                    Err(e) => unsafe {
-                        pointer
-                            .push(format!("{}", e))
-                            .expect("Unable to push error message");
-                        ffi::lua_error(state);
-                        unreachable!()
-                    },
-                }
-            }
         }
-    }
-}
-
-impl<F> LuaUserDataWrapper<F> {
-    #[inline]
-    pub fn wrap(f: F) -> Self {
-        LuaUserDataWrapper(f)
     }
 }
 
@@ -168,12 +143,6 @@ where
             ffi::lua_pushcfunction(state.pointer, Some(__gc::<D>));
             ffi::lua_settable(state.pointer, -3);
 
-            /*
-            ffi::lua_pushstring(state.pointer, "__tostring\0".as_ptr() as _);
-            ffi::lua_pushcfunction(state.pointer, Some(__tostring::<D>));
-            ffi::lua_settable(state.pointer, -3);
-            */
-
             let mut meta = Meta(state.pointer);
             D::register(&mut meta);
         }
@@ -187,24 +156,5 @@ where
             0
         }
 
-        /*
-        unsafe extern "C" fn __tostring<D>(state: *mut ffi::lua_State) -> raw::c_int
-        where
-            D: LuaUserData + fmt::Debug,
-        {
-            let mut state = LuaState {
-                owned: false,
-                pointer: state,
-            };
-
-            let repr = {
-                let data: Ref<D> = state.get(1).unwrap();
-                format!("{:?}", *data)
-            };
-
-            state.push(repr);
-            1
-        }
-        */
     }
 }

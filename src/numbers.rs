@@ -1,5 +1,5 @@
 use index::Index;
-use {ffi, Error, FromLua, IntoLua, LuaState, Result};
+use {ffi, Error, CheckLua, FromLua, IntoLua, LuaState, Result};
 
 macro_rules! impl_numbers {
     ($($type:ty),+) => {
@@ -7,6 +7,12 @@ macro_rules! impl_numbers {
             #[inline]
             unsafe fn into_lua(self, state: &mut LuaState) {
                 ffi::lua_pushinteger(state.pointer, self as _);
+            }
+        })+
+        $(impl CheckLua for $type {
+            #[inline]
+            unsafe fn check(state: &LuaState, idx: Index) -> bool {
+                ffi::lua_isnumber(state.pointer, idx.as_absolute()) == 1
             }
         })+
         $(impl<'a> FromLua<'a> for $type {
@@ -32,6 +38,12 @@ macro_rules! impl_integers {
             #[inline]
             unsafe fn into_lua(self, state: &mut LuaState) {
                 ffi::lua_pushnumber(state.pointer, self as _);
+            }
+        })+
+        $(impl CheckLua for $type {
+            #[inline]
+            unsafe fn check(state: &LuaState, idx: Index) -> bool {
+                ffi::lua_isinteger(state.pointer, idx.as_absolute()) == 1
             }
         })+
         $(impl<'a> FromLua<'a> for $type {
@@ -65,6 +77,13 @@ impl IntoLua for bool {
         } else {
             ffi::lua_pushboolean(state.pointer, 0);
         }
+    }
+}
+
+impl CheckLua for bool {
+    #[inline]
+    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+        ffi::lua_isboolean(state.pointer, idx.as_absolute())
     }
 }
 

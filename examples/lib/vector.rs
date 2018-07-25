@@ -52,7 +52,7 @@ impl LuaFunction for ToString {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let string = state.get_udata(1).map(|v: &Vector| format!("{:?}", v))?;
+        let string = state.get_udata(Index::from(1)).map(|v: &Vector| format!("{:?}", v))?;
         state.push(string)?;
         Ok(1)
     }
@@ -62,9 +62,8 @@ impl LuaFunction for New {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let cap: usize = state.get(-1)?;
-        let vec = Vector::new(cap);
-        state.push(lua_userdata!(vec))?;
+        let cap: usize = state.get(Index::from(1))?;
+        state.push_udata(Vector::new(cap))?;
         Ok(1)
     }
 }
@@ -74,9 +73,9 @@ impl LuaFunction for Insert {
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
         {
-            let index: usize = state.get(2)?;
-            let value: i32 = state.get(3)?;
-            let vector: &mut Vector = state.get_udata_mut(1)?;
+            let index: usize = state.get(Index::from(2))?;
+            let value: i32 = state.get(Index::from(3))?;
+            let vector: &mut Vector = state.get_udata_mut(Index::from(1))?;
 
             if index < vector.len() {
                 vector.set(index, value);
@@ -92,8 +91,8 @@ impl LuaFunction for Get {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let index: usize = state.get(2)?;
-        let value = state.get_udata(1).map(|s: &Vector| s.get(index));
+        let index: usize = state.get(Index::from(2))?;
+        let value = state.get_udata(Index::from(1)).map(|s: &Vector| s.get(index));
 
         state.push(value?);
         Ok(1)
@@ -104,7 +103,7 @@ impl LuaFunction for Length {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let len = state.get_udata(1).map(|s: &Vector| s.len())?;
+        let len = state.get_udata(Index::from(1)).map(|s: &Vector| s.len())?;
 
         state.push(len);
         Ok(1)

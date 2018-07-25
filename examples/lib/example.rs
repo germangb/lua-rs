@@ -28,8 +28,8 @@ impl LuaFunction for FnAdd {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        let a = state.get(1)?;
-        let b = state.get(2)?;
+        let a = state.get(Index::from(1))?;
+        let b = state.get(Index::from(2))?;
         state.push(Self::add(a, b));
         Ok(1)
     }
@@ -40,7 +40,7 @@ impl LuaFunction for FnLen {
 
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
         let length = {
-            let s: &str = state.get(1)?;
+            let s: &str = state.get(Index::from(1))?;
             s.len()
         };
 

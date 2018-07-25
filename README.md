@@ -27,7 +27,7 @@ impl LuaFunction for StringLength {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        let length = state.get(1).map(|s: &str| s.len())?;
+        let length = state.get(Index::Bottom(1)).map(|s: &str| s.len())?;
         state.push(length)?;
         Ok(1)
     }
@@ -69,8 +69,8 @@ state.push_udata(Foo {
 }).unwrap();
 
 // Get a reference to the stack
-let foo: &Foo = state.get_udata(-1).unwrap();
+let foo: &Foo = state.get_udata(Index::TOP).unwrap();
 
 // To get a mutable reference, use this instead:
-// let foomut: &mut Foo = state.get_udata_mut(-1).unwrap();
+// let foomut: &mut Foo = state.get_udata_mut(Index::TOP).unwrap();
 ```

@@ -11,7 +11,7 @@ impl LuaFunction for DebugFoo {
     type Error = Error;
 
     fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let debug = format!("{:?}", state.get_udata::<Foo, _>(1)?);
+        let debug = format!("{:?}", state.get_udata::<Foo>(Index::from(1))?);
         state.push(debug)?;
         Ok(1)
     }
@@ -19,12 +19,6 @@ impl LuaFunction for DebugFoo {
 
 #[derive(Debug)]
 struct Field;
-
-impl Drop for Field {
-    fn drop(&mut self) {
-        println!("drop the field");
-    }
-}
 
 #[derive(Debug)]
 struct Foo {
@@ -34,6 +28,10 @@ struct Foo {
 
 impl LuaUserData for Foo {
     const METATABLE: &'static str = "Example.foo";
+
+    fn register(m: &mut Meta) {
+        m.set::<DebugFoo>(Metamethod::ToString);
+    }
 }
 
 fn main() {
@@ -53,8 +51,13 @@ fn main() {
     state.set_global("debug");
 
     state.eval("print(debug(foo))").unwrap();
+    state.eval("print(foo)").unwrap();
 
     state.get_global("foo").unwrap();
-    let datum: &Foo = state.get_udata(-1).unwrap();
+    let datum: &Foo = state.get_udata(Index::TOP).unwrap();
     println!("{:?}", datum);
+
+    if state.is::<Foo>(Index::TOP) {
+        println!("foo on top!");
+    }
 }

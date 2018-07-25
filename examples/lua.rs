@@ -34,7 +34,7 @@ fn main() {
             (b, Err(Error::Syntax)) if b > 0 => state.pop(1),
             (_, Err(Error::Runtime)) | (_, Err(Error::Syntax)) => {
                 {
-                    let error: &str = state.get(-1).unwrap();
+                    let error: &str = state.get(Index::TOP).unwrap();
                     eprintln!("ERROR: {:?}", error);
                 }
                 state.pop(1);

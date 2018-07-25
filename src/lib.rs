@@ -36,13 +36,11 @@ use std::{fs::File, io::Read, path::Path, str, fmt};
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-/// Type that represents a lua nil
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Nil;
+/// Nil empty type to implement `CheckLua` on
+pub enum Nil {}
 
-/// Type to represent a generic lua table. NOT a specific one.
-#[derive(Debug, Copy, Clone)]
-pub struct Table;
+/// Table empty type to implement `CheckLua` on
+pub enum Table {}
 
 /// Type to perform operations over an underlying `lua_State` safely
 #[derive(Debug)]
@@ -54,7 +52,7 @@ pub struct LuaState {
 /// Standard libraries
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg(feature = "stdlib")]
-pub enum LuaLib {
+pub enum Lib {
     Base,
     Bit32,
     Coroutine,
@@ -80,7 +78,7 @@ impl<T: IntoLua> IntoLua for Option<T> {
         if let Some(v) = self {
             v.into_lua(state)
         } else {
-            state.push(Nil).unwrap()
+            ffi::lua_pushnil(state.pointer);
         }
     }
 }
@@ -97,33 +95,17 @@ impl<'a, T: FromLua<'a>> FromLua<'a> for Option<T> {
     }
 }
 
-impl IntoLua for Table {
-    #[inline]
-    unsafe fn into_lua(self, state: &mut LuaState) {
-        ffi::lua_newtable(state.pointer);
-    }
-}
-
-impl IntoLua for Nil {
-    #[inline]
-    unsafe fn into_lua(self, state: &mut LuaState) {
-        ffi::lua_pushnil(state.pointer);
-    }
-}
-
-impl<'a> FromLua<'a> for Nil {
-    #[inline]
-    unsafe fn from_lua(state: &'a LuaState, idx: Index) -> Result<Self> {
-        if ffi::lua_isnil(state.pointer, idx.as_absolute() as _) {
-            Ok(Nil)
-        } else {
-            Err(Error::Type)
-        }
-    }
-
+impl CheckLua for Nil {
     #[inline]
     unsafe fn check(state: &LuaState, idx: Index) -> bool {
-        ffi::lua_isnil(state.pointer, idx.as_absolute() as _)
+        ffi::lua_isnil(state.pointer, idx.as_absolute())
+    }
+}
+
+impl CheckLua for Table {
+    #[inline]
+    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+        ffi::lua_istable(state.pointer, idx.as_absolute())
     }
 }
 
@@ -135,6 +117,12 @@ pub trait IntoLua {
     unsafe fn into_lua(self, state: &mut LuaState);
 }
 
+/// Trait for type checking
+pub trait CheckLua {
+    /// check the type at the given position
+    unsafe fn check(state: &LuaState, idx: Index) -> bool;
+}
+
 /// Trait for types that can be read from the lua stack
 pub trait FromLua<'a>: Sized {
     /// Read the value at the given index.
@@ -142,12 +130,6 @@ pub trait FromLua<'a>: Sized {
 
     /// Check if the valuea the given index is of this type
     unsafe fn check(&LuaState, Index) -> bool;
-}
-
-/// Trait to mutate userdata types
-pub trait FromLuaMut<'a>: Sized {
-    /// Read the value
-    unsafe fn from_lua_mut(&'a mut LuaState, Index) -> Result<Self>;
 }
 
 impl LuaState {
@@ -181,28 +163,25 @@ impl LuaState {
 
     #[inline]
     #[cfg(feature = "stdlib")]
-    pub fn open_lib(&mut self, lib: LuaLib) {
+    pub fn open_lib(&mut self, lib: Lib) {
         unsafe {
             match lib {
-                LuaLib::Base => ffi::luaopen_base(self.pointer),
-                LuaLib::Bit32 => ffi::luaopen_bit32(self.pointer),
-                LuaLib::Coroutine => ffi::luaopen_coroutine(self.pointer),
-                LuaLib::Debug => ffi::luaopen_debug(self.pointer),
-                LuaLib::Io => ffi::luaopen_io(self.pointer),
-                LuaLib::Math => ffi::luaopen_math(self.pointer),
-                LuaLib::Os => ffi::luaopen_math(self.pointer),
-                LuaLib::Package => ffi::luaopen_package(self.pointer),
-                LuaLib::String => ffi::luaopen_string(self.pointer),
-                LuaLib::Table => ffi::luaopen_table(self.pointer),
-                LuaLib::Utf8 => ffi::luaopen_utf8(self.pointer),
+                Lib::Base => ffi::luaopen_base(self.pointer),
+                Lib::Bit32 => ffi::luaopen_bit32(self.pointer),
+                Lib::Coroutine => ffi::luaopen_coroutine(self.pointer),
+                Lib::Debug => ffi::luaopen_debug(self.pointer),
+                Lib::Io => ffi::luaopen_io(self.pointer),
+                Lib::Math => ffi::luaopen_math(self.pointer),
+                Lib::Os => ffi::luaopen_math(self.pointer),
+                Lib::Package => ffi::luaopen_package(self.pointer),
+                Lib::String => ffi::luaopen_string(self.pointer),
+                Lib::Table => ffi::luaopen_table(self.pointer),
+                Lib::Utf8 => ffi::luaopen_utf8(self.pointer),
             };
         }
     }
 
-    pub fn eval<T>(&mut self, source: T) -> Result<()>
-    where
-        T: AsCStr,
-    {
+    pub fn eval<T: AsCStr>(&mut self, source: T) -> Result<()> {
         self.load(source)?;
         self.call_protected(0, ffi::LUA_MULTRET as _)?;
         Ok(())
@@ -215,10 +194,7 @@ impl LuaState {
         self.load_from_reader(File::open(path)?)
     }
 
-    pub fn load_from_reader<R>(&mut self, mut read: R) -> Result<()>
-    where
-        R: Read,
-    {
+    pub fn load_from_reader<R: Read>(&mut self, mut read: R) -> Result<()> {
         let mut data = Vec::new();
         read.read_to_end(&mut data)?;
         self.load(data.as_slice())
@@ -233,10 +209,7 @@ impl LuaState {
         }
     }
 
-    pub fn load<T>(&mut self, source: T) -> Result<()>
-    where
-        T: AsCStr,
-    {
+    pub fn load<T: AsCStr>(&mut self, source: T) -> Result<()> {
         unsafe {
             let source = source.as_cstr();
             match ffi::luaL_loadstring(self.pointer, source.as_ptr() as _) as _ {
@@ -257,25 +230,23 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn push_function<F>(&mut self) -> Result<()>
-    where
-        F: LuaFunction,
-    {
-        self.push(lua_function!(F))
+    pub fn push_function<F: LuaFunction>(&mut self) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(self.pointer, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_pushcfunction(self.pointer, Some(functions::function::<F>));
+                Ok(())
+            }
+        }
     }
 
-    pub fn push_udata<U>(&mut self, data: U) -> Result<()>
-    where
-        U: LuaUserData,
-    {
+    pub fn push_udata<U: LuaUserData>(&mut self, data: U) -> Result<()> {
         self.push(lua_userdata!(data))
     }
 
     #[inline]
-    pub fn push<T>(&mut self, value: T) -> Result<()>
-    where
-        T: IntoLua,
-    {
+    pub fn push<T: IntoLua>(&mut self, value: T) -> Result<()> {
         unsafe {
             if ffi::lua_checkstack(self.pointer, 1) == 0 {
                 Err(Error::Memory)
@@ -286,78 +257,73 @@ impl LuaState {
         }
     }
 
-    pub fn get_udata<T, I>(&self, idx: I) -> Result<&T>
-    where
-        T: FromLuaData,
-        I: Into<Index>,
-    {
-        unsafe { T::from_lua(self, idx.into()) }
-    }
-
-    pub fn get_udata_mut<T, I>(&self, idx: I) -> Result<&mut T>
-    where
-        T: LuaUserData,
-        I: Into<Index>,
-    {
-        unimplemented!()
+    #[inline]
+    pub fn get_udata<T: FromLuaData>(&self, idx: Index) -> Result<&T> {
+        unsafe { T::from_lua(self, idx) }
     }
 
     #[inline]
-    pub fn is<'a, T>(&self, idx: Index) -> bool
-    where
-        T: FromLua<'a>,
-    {
+    pub fn get_udata_mut<T: LuaUserData>(&mut self, idx: Index) -> Result<&mut T> {
+        unsafe { T::from_lua_mut(self, idx) }
+    }
+
+    #[inline]
+    pub fn push_nil(&mut self) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(self.pointer, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_pushnil(self.pointer);
+                Ok(())
+            }
+        }
+    }
+
+    #[inline]
+    pub fn push_table(&mut self) -> Result<()> {
+        unsafe {
+            if ffi::lua_checkstack(self.pointer, 1) == 0 {
+                Err(Error::Memory)
+            } else {
+                ffi::lua_newtable(self.pointer);
+                Ok(())
+            }
+        }
+    }
+
+    #[inline]
+    pub fn is<T: CheckLua>(&self, idx: Index) -> bool {
         unsafe { T::check(self, idx) }
     }
 
     #[inline]
-    pub fn get<'a, T, I>(&'a self, idx: I) -> Result<T>
+    pub fn get<'a, T>(&'a self, idx: Index) -> Result<T>
     where
         T: FromLua<'a>,
-        I: Into<Index>,
     {
-        unsafe { T::from_lua(self, idx.into()) }
+        unsafe { T::from_lua(self, idx) }
     }
 
     #[inline]
-    pub fn get_mut<'a, T, I>(&'a mut self, idx: I) -> Result<T>
-    where
-        T: FromLuaMut<'a>,
-        I: Into<Index>,
-    {
-        unsafe { T::from_lua_mut(self, idx.into()) }
+    pub fn insert(&mut self, idx: Index) {
+        unsafe { ffi::lua_insert(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
-    pub fn insert<I>(&mut self, idx: I)
-    where
-        I: Into<Index>,
-    {
-        unsafe { ffi::lua_insert(self.pointer, idx.into().as_absolute()) }
+    pub fn replace<I>(&mut self, idx: Index) {
+        unsafe { ffi::lua_replace(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
-    pub fn replace<I>(&mut self, idx: I)
-    where
-        I: Into<Index>,
+    pub fn remove<I>(&mut self, idx: Index)
     {
-        unsafe { ffi::lua_replace(self.pointer, idx.into().as_absolute()) }
+        unsafe { ffi::lua_remove(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
-    pub fn remove<I>(&mut self, idx: I)
-    where
-        I: Into<Index>,
+    pub fn raw_len<I>(&self, idx: Index) -> usize
     {
-        unsafe { ffi::lua_remove(self.pointer, idx.into().as_absolute()) }
-    }
-
-    #[inline]
-    pub fn raw_len<I>(&self, idx: I) -> usize
-    where
-        I: Into<Index>,
-    {
-        unsafe { ffi::lua_rawlen(self.pointer, idx.into().as_absolute()) }
+        unsafe { ffi::lua_rawlen(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
@@ -366,18 +332,12 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn set_global<N>(&mut self, n: N)
-    where
-        N: AsCStr,
-    {
+    pub fn set_global<N: AsCStr>(&mut self, n: N) {
         unsafe { ffi::lua_setglobal(self.pointer, n.as_cstr().as_ptr()) };
     }
 
     #[inline]
-    pub fn get_global<N>(&mut self, n: N) -> Result<()>
-    where
-        N: AsCStr,
-    {
+    pub fn get_global<N: AsCStr>(&mut self, n: N) -> Result<()> {
         unsafe {
             if ffi::lua_checkstack(self.pointer, 1) == 0 {
                 Err(Error::Memory)
@@ -389,19 +349,13 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn set_table<I>(&mut self, idx: I)
-    where
-        I: Into<Index>,
-    {
-        unsafe { ffi::lua_settable(self.pointer, idx.into().as_absolute()) };
+    pub fn set_table(&mut self, idx: Index) {
+        unsafe { ffi::lua_settable(self.pointer, idx.as_absolute()) };
     }
 
     #[inline]
-    pub fn raw_seti<I>(&mut self, idx: I, i: i64)
-    where
-        I: Into<Index>,
-    {
-        unsafe { ffi::lua_rawseti(self.pointer, idx.into().as_absolute(), i) };
+    pub fn raw_seti(&mut self, idx: Index, i: i64) {
+        unsafe { ffi::lua_rawseti(self.pointer, idx.as_absolute(), i) };
     }
 }
 

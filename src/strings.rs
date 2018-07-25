@@ -1,5 +1,5 @@
 use index::Index;
-use {ffi, Error, FromLua, IntoLua, LuaState, Result};
+use {ffi, Error, CheckLua, FromLua, IntoLua, LuaState, Result};
 
 use std::{slice, str};
 
@@ -9,6 +9,12 @@ macro_rules! impl_string {
             #[inline]
             unsafe fn into_lua(self, state: &mut LuaState) {
                 ffi::lua_pushlstring(state.pointer, self.as_ptr() as _, self.len() as _);
+            }
+        })+
+        $(impl<'a> CheckLua for &'a $type {
+            #[inline]
+            unsafe fn check(state: &LuaState, idx: Index) -> bool {
+                ffi::lua_isstring(state.pointer, idx.as_absolute()) == 1
             }
         })+
     };
