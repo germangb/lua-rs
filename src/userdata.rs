@@ -37,7 +37,6 @@ impl<T: LuaUserData> CheckLua for T {
 }
 
 impl<T: LuaUserData> FromLuaData for T {
-    /// Get a reference
     unsafe fn from_lua(state: &LuaState, idx: Index) -> Result<&Self> {
         if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
             return Err(Error::Type);
@@ -53,7 +52,6 @@ impl<T: LuaUserData> FromLuaData for T {
         Ok(mem::transmute(pointer as *const T))
     }
 
-    /// Get a mutable reference
     unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self> {
         if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
             return Err(Error::Type);

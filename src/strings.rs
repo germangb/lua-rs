@@ -11,7 +11,7 @@ macro_rules! impl_string {
                 ffi::lua_pushlstring(state.pointer, self.as_ptr() as _, self.len() as _);
             }
         })+
-        $(impl<'a> CheckLua for &'a $type {
+        $(impl CheckLua for $type {
             #[inline]
             unsafe fn check(state: &LuaState, idx: Index) -> bool {
                 ffi::lua_isstring(state.pointer, idx.as_absolute()) == 1

@@ -292,7 +292,7 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn is<T: CheckLua>(&self, idx: Index) -> bool {
+    pub fn is<T: ?Sized + CheckLua>(&self, idx: Index) -> bool {
         unsafe { T::check(self, idx) }
     }
 
