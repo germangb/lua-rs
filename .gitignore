@@ -3,3 +3,4 @@
 *.swp
 src/ffi/bindgen.rs
 .doc
+pages_deploy
