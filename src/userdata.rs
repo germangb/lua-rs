@@ -1,3 +1,32 @@
+//! # Example
+//!
+//! ```
+//! use lua::prelude::*;
+//! 
+//! #[derive(Debug)]
+//! struct Foo {
+//!     bar: Vec<i32>,
+//!     baz: String,
+//! }
+//! 
+//! impl LuaUserData for Foo {
+//!     // An identifier, unique to the Type
+//!     const METATABLE: &'static str = "Example.foo";
+//! }
+//! 
+//! let mut state = LuaState::new();
+//! 
+//! state.push_udata(Foo {
+//!     bar: vec![0; 16],
+//!     baz: String::from("Hello world!"),
+//! }).unwrap();
+//! 
+//! // Get a reference to the stack
+//! let foo: &Foo = state.get_udata(Index::TOP).unwrap();
+//! 
+//! // To get a mutable reference, use this instead:
+//! // let foomut: &mut Foo = state.get_udata_mut(Index::TOP).unwrap();
+//! ```
 use index::Index;
 use {ffi, Error, CheckLua, IntoLua, LuaState, Result};
 
