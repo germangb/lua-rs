@@ -224,6 +224,19 @@ impl State {
         Ok(())
     }
 
+    pub fn eval_from_reader<R: Read>(&mut self, mut read: R) -> Result<()> {
+        let mut data = Vec::new();
+        read.read_to_end(&mut data)?;
+        self.eval(data.as_slice())
+    }
+
+    pub fn eval_from_file<P>(&mut self, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        self.eval_from_reader(File::open(path)?)
+    }
+
     pub fn load_from_file<P>(&mut self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
