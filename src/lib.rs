@@ -219,9 +219,6 @@ impl State {
     }
 
     pub fn into_raw(mut self) -> *mut ffi::lua_State {
-        if !self.owned {
-            panic!("Cannot call `into_raw` because the `lua_State` pointer is not owned by this `State`")
-        }
         self.owned = false;
         self.pointer
     }
