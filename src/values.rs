@@ -24,11 +24,6 @@ macro_rules! impl_numbers {
                 if isnum == 0 { Err(Error::Type) }
                 else { Ok(res as $type) }
             }
-
-            #[inline]
-            unsafe fn check(state: &State, idx: Index) -> bool {
-                ffi::lua_isnumber(state.pointer, idx.as_absolute() as _) == 1
-            }
         })+
     }
 }
@@ -54,11 +49,6 @@ macro_rules! impl_integers {
                 let res = ffi::lua_tointegerx(state.pointer, idx.as_absolute() as _, &mut isnum);
                 if isnum == 0 { Err(Error::Type) }
                 else { Ok(res as $type) }
-            }
-
-            #[inline]
-            unsafe fn check(state: &State, idx: Index) -> bool {
-                ffi::lua_isinteger(state.pointer, idx.as_absolute() as _) == 1
             }
         })+
     }
@@ -92,11 +82,6 @@ impl<'a> FromLua<'a> for bool {
     #[inline]
     unsafe fn from_lua(state: &'a State, idx: Index) -> Result<Self> {
         Ok(ffi::lua_toboolean(state.pointer, idx.as_absolute() as _) == 1)
-    }
-
-    #[inline]
-    unsafe fn check(state: &State, idx: Index) -> bool {
-        ffi::lua_isboolean(state.pointer, idx.as_absolute() as _)
     }
 }
 
@@ -140,10 +125,6 @@ impl<'a> FromLua<'a> for &'a str {
             str::from_utf8(slice).map_err(|_| Error::Utf8)
         }
     }
-
-    unsafe fn check(state: &State, idx: Index) -> bool {
-        ffi::lua_isstring(state.pointer, idx.as_absolute()) == 1
-    }
 }
 
 impl<'a> FromLua<'a> for &'a [u8] {
@@ -156,9 +137,5 @@ impl<'a> FromLua<'a> for &'a [u8] {
         } else {
             Ok(slice::from_raw_parts(ptr as *const u8, len))
         }
-    }
-
-    unsafe fn check(state: &State, idx: Index) -> bool {
-        ffi::lua_isstring(state.pointer, idx.as_absolute()) == 1
     }
 }

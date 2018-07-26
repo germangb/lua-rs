@@ -1,5 +1,5 @@
 #[macro_use]
-pub mod macros;
+mod macros;
 
 /// Error type
 pub mod error;
@@ -7,10 +7,10 @@ pub mod error;
 pub mod ffi;
 /// Traits to implement lua functions in Rust
 pub mod functions;
-/// Implementations of `FromLua` and `IntoLua` for rust primitives
-pub mod values;
 /// Traits to work with user defined Types from lua
 pub mod userdata;
+/// Implementations of `FromLua` and `IntoLua` for rust primitives
+pub mod values;
 
 pub use error::Error;
 pub use functions::Function;
@@ -23,9 +23,33 @@ use std::{fmt, fs::File, io::Read, os::raw, path::Path, str};
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Nil empty type to implement `CheckLua` on
+///
+/// ## Examples
+/// ```
+/// extern crate lua;
+///
+/// use lua::{Nil, Index};
+///
+/// let mut state = lua::State::new();
+/// state.push_nil().unwrap();
+///
+/// assert!(state.is::<Nil>(Index::TOP));
+/// ```
 pub enum Nil {}
 
 /// Table empty type to implement `CheckLua` on
+///
+/// ## Examples
+/// ```
+/// extern crate lua;
+///
+/// use lua::{Table, Index};
+///
+/// let mut state = lua::State::new();
+/// state.push_table().unwrap();
+///
+/// assert!(state.is::<Table>(Index::Top(1)));
+/// ```
 pub enum Table {}
 
 /// Type to perform operations over an underlying `lua_State` safely
@@ -33,23 +57,6 @@ pub enum Table {}
 pub struct State {
     owned: bool,
     pointer: *mut ffi::lua_State,
-}
-
-/// Standard libraries
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg(feature = "stdlib")]
-pub enum Lib {
-    Base,
-    Bit32,
-    Coroutine,
-    Debug,
-    Io,
-    Math,
-    Os,
-    Package,
-    String,
-    Table,
-    Utf8,
 }
 
 /// Enum to index the stack relative to the Top and Bottom
@@ -115,11 +122,6 @@ impl<'a, T: FromLua<'a>> FromLua<'a> for Option<T> {
     unsafe fn from_lua(state: &'a State, idx: Index) -> Result<Self> {
         Ok(T::from_lua(state, idx).ok())
     }
-
-    #[inline]
-    unsafe fn check(_: &State, _: Index) -> bool {
-        true
-    }
 }
 
 impl CheckLua for Nil {
@@ -154,9 +156,6 @@ pub trait CheckLua {
 pub trait FromLua<'a>: Sized {
     /// Read the value at the given index.
     unsafe fn from_lua(&'a State, Index) -> Result<Self>;
-
-    /// Check if the valuea the given index is of this type
-    unsafe fn check(&State, Index) -> bool;
 }
 
 impl State {
@@ -186,26 +185,6 @@ impl State {
     #[cfg(feature = "stdlib")]
     pub fn open_libs(&mut self) {
         unsafe { ffi::luaL_openlibs(self.pointer) }
-    }
-
-    #[inline]
-    #[cfg(feature = "stdlib")]
-    pub fn open_lib(&mut self, lib: Lib) {
-        unsafe {
-            match lib {
-                Lib::Base => ffi::luaopen_base(self.pointer),
-                Lib::Bit32 => ffi::luaopen_bit32(self.pointer),
-                Lib::Coroutine => ffi::luaopen_coroutine(self.pointer),
-                Lib::Debug => ffi::luaopen_debug(self.pointer),
-                Lib::Io => ffi::luaopen_io(self.pointer),
-                Lib::Math => ffi::luaopen_math(self.pointer),
-                Lib::Os => ffi::luaopen_math(self.pointer),
-                Lib::Package => ffi::luaopen_package(self.pointer),
-                Lib::String => ffi::luaopen_string(self.pointer),
-                Lib::Table => ffi::luaopen_table(self.pointer),
-                Lib::Utf8 => ffi::luaopen_utf8(self.pointer),
-            };
-        }
     }
 
     pub fn eval<T: AsCStr>(&mut self, source: T) -> Result<()> {
@@ -394,6 +373,42 @@ impl State {
     #[inline]
     pub fn raw_seti(&mut self, idx: Index, i: i64) {
         unsafe { ffi::lua_rawseti(self.pointer, idx.as_absolute(), i) };
+    }
+}
+
+macro_rules! std_libs {
+    (pub enum Lib { $($variant:ident => $loader:path ,)+ }) => {
+        /// Standard libraries
+        #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+        #[cfg(feature = "stdlib")]
+        pub enum Lib { $($variant ,)+ }
+        impl State {
+            #[inline]
+            #[cfg(feature = "stdlib")]
+            pub fn open_lib(&mut self, lib: Lib) {
+                unsafe {
+                    match lib {
+                        $( Lib::$variant => $loader(self.pointer), )+
+                    };
+                }
+            }
+        }
+    }
+}
+
+std_libs! {
+    pub enum Lib {
+        Base => ffi::luaopen_base,
+        Bit32 => ffi::luaopen_bit32,
+        Coroutine => ffi::luaopen_coroutine,
+        Debug => ffi::luaopen_debug,
+        Io => ffi::luaopen_io,
+        Math => ffi::luaopen_math,
+        Os => ffi::luaopen_math,
+        Package => ffi::luaopen_package,
+        String => ffi::luaopen_string,
+        Table => ffi::luaopen_table,
+        Utf8 => ffi::luaopen_utf8,
     }
 }
 
