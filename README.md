@@ -13,6 +13,17 @@
 $ cargo run --example lua [FILE]
 ```
 
+### Hello World
+
+```rust
+extern crate lua;
+
+let mut state = lua::State::new();
+state.open_libs();
+
+state.eval("print ('hello world')").unwrap();
+```
+
 ### Functions
 
 Types that implement the `Function` trait can be used as lua functions:
