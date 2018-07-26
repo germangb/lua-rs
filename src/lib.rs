@@ -7,18 +7,8 @@ pub mod error;
 pub mod ffi;
 /// Traits to implement lua functions in Rust
 pub mod functions;
-/// Implementations of `FromLua` and `IntoLua` for rust numeric types
-pub mod numbers;
-//// Re-exports of common types & traits
-////
-//// ```rust
-//// extern crate lua;
-////
-//// use lua::prelude::*;
-//// ```
-//pub mod prelude;
-/// Implementations of `FromLua` and `IntoLua` for string types
-pub mod strings;
+/// Implementations of `FromLua` and `IntoLua` for rust primitives
+pub mod values;
 /// Traits to work with user defined Types from lua
 pub mod userdata;
 
