@@ -1,3 +1,24 @@
+//! ## Example
+//!
+//! ```
+//! extern crate lua;
+//!
+//! use lua::Index;
+//! 
+//! let mut state = lua::State::new();
+//! state.open_libs();
+//! 
+//! state.eval(r#"
+//!     print ('hello world')
+//!
+//!     -- define global vars
+//!     foo = 42
+//! "#).unwrap();
+//!
+//! state.get_global("foo").unwrap();
+//!
+//! assert_eq!(Some(42), state.get(Index::TOP).ok());
+//! ```
 #[macro_use]
 mod macros;
 
@@ -9,7 +30,36 @@ pub mod ffi;
 pub mod functions;
 /// Traits to work with user defined Types from lua
 pub mod userdata;
-/// Implementations of `FromLua` and `IntoLua` for rust primitives
+/// Implementations of `FromLua` and `IntoLua` for rust primitives.
+///
+/// ## Example
+///
+/// ```
+/// extern crate lua;
+///
+/// use lua::Index;
+///
+/// let mut state = lua::State::new();
+///
+/// state.push("128").unwrap(); // Index::Top(4)
+/// state.push_nil().unwrap();  // Index::Top(3)
+/// state.push(16).unwrap();    // Index::Top(2)
+/// state.push(true).unwrap();  // Index::Top(1)
+///
+/// // Numeric
+/// assert_eq!(Some(128), state.get(Index::Top(4)).ok());
+/// assert_eq!(Some(16), state.get(Index::Top(2)).ok());
+/// assert_eq!(Some(16.0), state.get(Index::Top(2)).ok());
+///
+/// // Booleans return true for any value that is not `nil`
+/// assert_eq!(Some(true), state.get(Index::Top(1)).ok());
+/// assert_eq!(Some(false), state.get(Index::Top(3)).ok());
+///
+/// // Some values can also be read as strings. Because string
+/// // in lua can contain arbitrary binary data, the `FromLua`
+/// // trait is implemented for both &str and [u8] slices
+/// assert_eq!(Some("16.0"), state.get(Index::Top(2)).ok());
+/// ```
 pub mod values;
 
 pub use error::Error;
@@ -169,6 +219,9 @@ impl State {
     }
 
     pub fn into_raw(mut self) -> *mut ffi::lua_State {
+        if !self.owned {
+            panic!("Cannot call `into_raw` because the `lua_State` pointer is not owned by this `State`")
+        }
         self.owned = false;
         self.pointer
     }
