@@ -3,13 +3,13 @@ extern crate lua;
 
 mod lib;
 
+use lua::{Error, Index};
 use lib::{example, vector};
-use lua::prelude::*;
 
 use std::{env, fs, io};
 
 fn main() {
-    let mut state = LuaState::new();
+    let mut state = lua::State::new();
 
     state.open_libs();
 

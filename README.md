@@ -4,7 +4,7 @@
 
 (WIP) Rust wrapper around the [Lua](https://www.lua.org/) C API.
 
-**[Documentation](https://germangb.github.io/lua-rs/lua/index.html)**
+**[Documentation](https://germangb.github.io/lua-rs/)**
 
 ## Examples
 
@@ -15,25 +15,27 @@ $ cargo run --example lua [FILE]
 
 ### Functions
 
-Types that implement the `LuaFunction` trait can be used as lua functions:
+Types that implement the `Function` trait can be used as lua functions:
 
 ```rust
-use lua::prelude::*;
+extern crate lua;
+
+use lua::{Function, Index};
 
 // A Type for a function that returns the length of a string
 enum StringLength {}
 
-impl LuaFunction for StringLength {
-    type Error = Error;
+impl Function for StringLength {
+    type Error = lua::Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+    fn call(state: &mut lua::State) -> Result<usize, Self::Error> {
         let length = state.get(Index::Bottom(1)).map(|s: &str| s.len())?;
         state.push(length)?;
         Ok(1)
     }
 }
 
-let mut state = LuaState::new();
+let mut state = lua::State::new();
 
 state.push_function::<StringLength>().unwrap();
 state.set_global("length");
@@ -43,12 +45,14 @@ state.eval("len = length('hello world')").unwrap(); // len = 11
 
 ### Custom Userdata
 
-Types that implements the `LuaUserData` trait can be used as [userdata](https://www.lua.org/pil/28.1.html). When a type is moved into the stack, the `LuaState` becomes its owner and will eventually be dropped by the garbage collector.
+Types that implements the `UserData` trait can be used as [userdata](https://www.lua.org/pil/28.1.html). When a type is moved into the stack, the `State` becomes its owner and will eventually be dropped by the garbage collector.
 
 For a more complete example, including setting up metamethods, see [this example](./examples/lib/vector.rs).
 
 ```rust
-use lua::prelude::*;
+extern crate lua;
+
+use lua::{UserData, Index};
 
 #[derive(Debug)]
 struct Foo {
@@ -56,12 +60,12 @@ struct Foo {
     baz: String,
 }
 
-impl LuaUserData for Foo {
+impl UserData for Foo {
     // An identifier, unique to the Type
     const METATABLE: &'static str = "Example.foo";
 }
 
-let mut state = LuaState::new();
+let mut state = lua::State::new();
 
 state.push_udata(Foo {
     bar: vec![0; 16],

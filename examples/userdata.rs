@@ -1,17 +1,18 @@
 #[macro_use]
 extern crate lua;
 
-use lua::prelude::*;
+use lua::{State, Error, Index, UserData, Function};
+use lua::userdata::{MetaTable, MetaMethod};
 
 use std::rc::Rc;
 
 enum DebugFoo {}
 
-impl LuaFunction for DebugFoo {
+impl lua::Function for DebugFoo {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let debug = format!("{:?}", state.get_udata::<Foo>(Index::from(1))?);
+    fn call(state: &mut State) -> Result<usize, Error> {
+        let debug = format!("{:?}", state.get_udata::<Foo>(Index::Bottom(1))?);
         state.push(debug)?;
         Ok(1)
     }
@@ -26,16 +27,16 @@ struct Foo {
     baz: Rc<Field>,
 }
 
-impl LuaUserData for Foo {
+impl lua::UserData for Foo {
     const METATABLE: &'static str = "Example.foo";
 
-    fn register(m: &mut Meta) {
-        m.set::<DebugFoo>(Metamethod::ToString);
+    fn register(m: &mut MetaTable) {
+        m.set::<DebugFoo>(MetaMethod::ToString);
     }
 }
 
 fn main() {
-    let mut state = LuaState::new();
+    let mut state = lua::State::new();
     state.open_libs();
 
     let baz = Rc::new(Field);
@@ -53,11 +54,15 @@ fn main() {
     state.eval("print(debug(foo))").unwrap();
     state.eval("print(foo)").unwrap();
 
-    state.get_global("foo").unwrap();
-    let datum: &Foo = state.get_udata(Index::TOP).unwrap();
-    println!("{:?}", datum);
+    {
+        state.get_global("foo").unwrap();
+        let datum: &Foo = state.get_udata(Index::TOP).unwrap();
+        println!("{:?}", datum);
+    }
 
-    if state.is::<Foo>(Index::TOP) {
-        println!("foo on top!");
+    state.push("hello world!");
+    if state.is::<str>(Index::TOP) {
+        //state.push_nil();
+        let line: &str = state.get(Index::TOP).expect("not a string...");
     }
 }

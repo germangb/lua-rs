@@ -1,4 +1,4 @@
-use lua::prelude::*;
+use lua::{Index, State, Error, Function};
 
 enum FnError {} // raises a lua runtime error
 enum FnAdd {}   // adds two integers
@@ -10,10 +10,10 @@ lua_library! {
     FnLen => "len"
 }
 
-impl LuaFunction for FnError {
+impl Function for FnError {
     type Error = &'static str;
 
-    fn call(_: &mut LuaState) -> Result<usize, Self::Error> {
+    fn call(_: &mut State) -> Result<usize, Self::Error> {
         Err("This is a rust runtime error")
     }
 }
@@ -24,23 +24,23 @@ impl FnAdd {
     }
 }
 
-impl LuaFunction for FnAdd {
+impl Function for FnAdd {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
-        let a = state.get(Index::from(1))?;
-        let b = state.get(Index::from(2))?;
+    fn call(state: &mut State) -> Result<usize, Self::Error> {
+        let a = state.get(Index::Bottom(1))?;
+        let b = state.get(Index::Bottom(2))?;
         state.push(Self::add(a, b));
         Ok(1)
     }
 }
 
-impl LuaFunction for FnLen {
+impl Function for FnLen {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Self::Error> {
+    fn call(state: &mut State) -> Result<usize, Self::Error> {
         let length = {
-            let s: &str = state.get(Index::from(1))?;
+            let s: &str = state.get(Index::Bottom(1))?;
             s.len()
         };
 

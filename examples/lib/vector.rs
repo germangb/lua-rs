@@ -1,4 +1,5 @@
-use lua::prelude::*;
+use lua::{Index, Error, State, UserData, Function};
+use lua::userdata::{MetaMethod, MetaTable};
 
 #[derive(Debug)]
 struct Vector(Vec<i32>);
@@ -20,14 +21,14 @@ enum Length {}      // `__len` metamethod
 enum Get {}         // `__index` metamethod
 enum Insert {}      // `__newindex` metamethid
 
-impl LuaUserData for Vector {
+impl UserData for Vector {
     const METATABLE: &'static str = "Vector.Vector";
 
-    fn register(meta: &mut Meta) {
-        meta.set::<ToString>(Metamethod::ToString);
-        meta.set::<Length>(Metamethod::Len);
-        meta.set::<Get>(Metamethod::Index);
-        meta.set::<Insert>(Metamethod::NewIndex);
+    fn register(meta: &mut MetaTable) {
+        meta.set::<ToString>(MetaMethod::ToString);
+        meta.set::<Length>(MetaMethod::Len);
+        meta.set::<Get>(MetaMethod::Index);
+        meta.set::<Insert>(MetaMethod::NewIndex);
     }
 }
 
@@ -48,34 +49,34 @@ impl Vector {
     }
 }
 
-impl LuaFunction for ToString {
+impl Function for ToString {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let string = state.get_udata(Index::from(1)).map(|v: &Vector| format!("{:?}", v))?;
+    fn call(state: &mut State) -> Result<usize, Error> {
+        let string = state.get_udata(Index::Bottom(1)).map(|v: &Vector| format!("{:?}", v))?;
         state.push(string)?;
         Ok(1)
     }
 }
 
-impl LuaFunction for New {
+impl Function for New {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let cap: usize = state.get(Index::from(1))?;
+    fn call(state: &mut State) -> Result<usize, Error> {
+        let cap: usize = state.get(Index::Bottom(1))?;
         state.push_udata(Vector::new(cap))?;
         Ok(1)
     }
 }
 
-impl LuaFunction for Insert {
+impl Function for Insert {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
+    fn call(state: &mut State) -> Result<usize, Error> {
         {
-            let index: usize = state.get(Index::from(2))?;
-            let value: i32 = state.get(Index::from(3))?;
-            let vector: &mut Vector = state.get_udata_mut(Index::from(1))?;
+            let index: usize = state.get(Index::Bottom(2))?;
+            let value: i32 = state.get(Index::Bottom(3))?;
+            let vector: &mut Vector = state.get_udata_mut(Index::Bottom(1))?;
 
             if index < vector.len() {
                 vector.set(index, value);
@@ -87,23 +88,23 @@ impl LuaFunction for Insert {
     }
 }
 
-impl LuaFunction for Get {
+impl Function for Get {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let index: usize = state.get(Index::from(2))?;
-        let value = state.get_udata(Index::from(1)).map(|s: &Vector| s.get(index));
+    fn call(state: &mut State) -> Result<usize, Error> {
+        let index: usize = state.get(Index::Bottom(2))?;
+        let value = state.get_udata::<Vector>(Index::Bottom(1)).map(|s| s.get(index));
 
         state.push(value?);
         Ok(1)
     }
 }
 
-impl LuaFunction for Length {
+impl Function for Length {
     type Error = Error;
 
-    fn call(state: &mut LuaState) -> Result<usize, Error> {
-        let len = state.get_udata(Index::from(1)).map(|s: &Vector| s.len())?;
+    fn call(state: &mut State) -> Result<usize, Error> {
+        let len = state.get_udata::<Vector>(Index::Bottom(1)).map(|s| s.len())?;
 
         state.push(len);
         Ok(1)
@@ -111,7 +112,7 @@ impl LuaFunction for Length {
 }
 
 /*
-pub fn load_lib(lua: &mut LuaState) -> Result<(), Error> {
+pub fn load_lib(lua: &mut State) -> Result<(), Error> {
     lua.push(Table)?;
     lua.push("new")?;
     lua.push(lua_function!(New))?;

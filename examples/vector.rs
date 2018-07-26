@@ -4,10 +4,11 @@ extern crate lua;
 mod lib;
 
 use lib::vector;
-use lua::prelude::*;
+
+use lua::{State, Index};
 
 fn main() {
-    let mut lua = LuaState::new();
+    let mut lua = State::new();
     lua.open_libs();
     vector::load_lib("vec", &mut lua).unwrap();
 

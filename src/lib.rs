@@ -1,37 +1,33 @@
 #[macro_use]
 pub mod macros;
 
-/// Error types
+/// Error type
 pub mod error;
 /// Raw bindings from the Lua C API
 pub mod ffi;
-/// Utilities to implement rust functions that can be called from Lua
+/// Traits to implement lua functions in Rust
 pub mod functions;
-/// Utilities for indexing the stack
-pub mod index;
-/// contains implementations of `FromLua` and `IntoLua` for rust numeric types
+/// Implementations of `FromLua` and `IntoLua` for rust numeric types
 pub mod numbers;
-/// Re-exports of common types & traits
-///
-/// ```rust
-/// extern crate lua;
-///
-/// use lua::prelude::*;
-/// ```
-pub mod prelude;
-/// Utilities to work with Lua strings
+//// Re-exports of common types & traits
+////
+//// ```rust
+//// extern crate lua;
+////
+//// use lua::prelude::*;
+//// ```
+//pub mod prelude;
+/// Implementations of `FromLua` and `IntoLua` for string types
 pub mod strings;
-/// Utilities to work with Lua userdata
+/// Traits to work with user defined Types from lua
 pub mod userdata;
 
-use functions::LuaFunction;
-use userdata::{LuaUserData, FromLuaData};
+pub use error::Error;
+pub use functions::Function;
+pub use userdata::UserData;
 
-use error::Error;
 use ffi::AsCStr;
-use index::Index;
-
-use std::{fs::File, io::Read, path::Path, str, fmt};
+use std::{fmt, fs::File, io::Read, os::raw, path::Path, str};
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -44,7 +40,7 @@ pub enum Table {}
 
 /// Type to perform operations over an underlying `lua_State` safely
 #[derive(Debug)]
-pub struct LuaState {
+pub struct State {
     owned: bool,
     pointer: *mut ffi::lua_State,
 }
@@ -66,15 +62,56 @@ pub enum Lib {
     Utf8,
 }
 
-/// Type to configura the garbage collector
+/// Enum to index the stack relative to the Top and Bottom
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum Index {
+    /// index from the top of the stack
+    Top(usize),
+
+    /// index from the bottom of the stack
+    Bottom(usize),
+}
+
+impl Index {
+    /// Top of the stack. Equivalent to `-1`
+    pub const TOP: Index = Index::Top(1);
+
+    /// Bottom of the stack. Equivalent to `1`
+    pub const BOTTOM: Index = Index::Bottom(1);
+
+    /// Index of the registry table. Equivalent to `LUA_REGISTRYINDEX`
+    pub const REGITRY: Index = Index::Top(1001000);
+
+    #[inline]
+    pub fn from_absolute(v: raw::c_int) -> Self {
+        if v < 0 {
+            Index::Top((-v) as _)
+        } else {
+            Index::Bottom(v as _)
+        }
+    }
+
+    #[inline]
+    pub fn as_absolute(&self) -> raw::c_int {
+        match *self {
+            Index::Top(i) => {
+                let idx = i as raw::c_int;
+                -idx
+            }
+            Index::Bottom(i) => i as _,
+        }
+    }
+}
+
+/// To configure garbage collection
 #[derive(Debug)]
-pub struct LuaGc<'a> {
-    state: &'a LuaState,
+pub struct Gc<'a> {
+    state: &'a State,
 }
 
 impl<T: IntoLua> IntoLua for Option<T> {
     #[inline]
-    unsafe fn into_lua(self, state: &mut LuaState) {
+    unsafe fn into_lua(self, state: &mut State) {
         if let Some(v) = self {
             v.into_lua(state)
         } else {
@@ -85,26 +122,26 @@ impl<T: IntoLua> IntoLua for Option<T> {
 
 impl<'a, T: FromLua<'a>> FromLua<'a> for Option<T> {
     #[inline]
-    unsafe fn from_lua(state: &'a LuaState, idx: Index) -> Result<Self> {
+    unsafe fn from_lua(state: &'a State, idx: Index) -> Result<Self> {
         Ok(T::from_lua(state, idx).ok())
     }
 
     #[inline]
-    unsafe fn check(_: &LuaState, _: Index) -> bool {
+    unsafe fn check(_: &State, _: Index) -> bool {
         true
     }
 }
 
 impl CheckLua for Nil {
     #[inline]
-    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+    unsafe fn check(state: &State, idx: Index) -> bool {
         ffi::lua_isnil(state.pointer, idx.as_absolute())
     }
 }
 
 impl CheckLua for Table {
     #[inline]
-    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+    unsafe fn check(state: &State, idx: Index) -> bool {
         ffi::lua_istable(state.pointer, idx.as_absolute())
     }
 }
@@ -114,28 +151,28 @@ pub trait IntoLua {
     /// Push value to the stack.
     ///
     /// This method is unsafe because it doesn't check for available space in the stack.
-    unsafe fn into_lua(self, state: &mut LuaState);
+    unsafe fn into_lua(self, state: &mut State);
 }
 
 /// Trait for type checking
 pub trait CheckLua {
     /// check the type at the given position
-    unsafe fn check(state: &LuaState, idx: Index) -> bool;
+    unsafe fn check(state: &State, idx: Index) -> bool;
 }
 
 /// Trait for types that can be read from the lua stack
 pub trait FromLua<'a>: Sized {
     /// Read the value at the given index.
-    unsafe fn from_lua(&'a LuaState, Index) -> Result<Self>;
+    unsafe fn from_lua(&'a State, Index) -> Result<Self>;
 
     /// Check if the valuea the given index is of this type
-    unsafe fn check(&LuaState, Index) -> bool;
+    unsafe fn check(&State, Index) -> bool;
 }
 
-impl LuaState {
+impl State {
     pub fn new() -> Self {
         unsafe {
-            LuaState {
+            State {
                 owned: true,
                 pointer: ffi::luaL_newstate(),
             }
@@ -149,7 +186,7 @@ impl LuaState {
 
     #[inline]
     pub unsafe fn from_raw_parts(state: *mut ffi::lua_State) -> Self {
-        LuaState {
+        State {
             owned: true,
             pointer: state,
         }
@@ -225,12 +262,12 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn gc(&self) -> LuaGc {
-        LuaGc { state: self }
+    pub fn gc(&self) -> Gc {
+        Gc { state: self }
     }
 
     #[inline]
-    pub fn push_function<F: LuaFunction>(&mut self) -> Result<()> {
+    pub fn push_function<F: Function>(&mut self) -> Result<()> {
         unsafe {
             if ffi::lua_checkstack(self.pointer, 1) == 0 {
                 Err(Error::Memory)
@@ -241,8 +278,8 @@ impl LuaState {
         }
     }
 
-    pub fn push_udata<U: LuaUserData>(&mut self, data: U) -> Result<()> {
-        self.push(lua_userdata!(data))
+    pub fn push_udata<U: UserData>(&mut self, data: U) -> Result<()> {
+        self.push(userdata::LuaUserDataWrapper(data))
     }
 
     #[inline]
@@ -258,12 +295,12 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn get_udata<T: FromLuaData>(&self, idx: Index) -> Result<&T> {
+    pub fn get_udata<T: userdata::FromLua>(&self, idx: Index) -> Result<&T> {
         unsafe { T::from_lua(self, idx) }
     }
 
     #[inline]
-    pub fn get_udata_mut<T: LuaUserData>(&mut self, idx: Index) -> Result<&mut T> {
+    pub fn get_udata_mut<T: userdata::FromLuaMut>(&mut self, idx: Index) -> Result<&mut T> {
         unsafe { T::from_lua_mut(self, idx) }
     }
 
@@ -315,14 +352,12 @@ impl LuaState {
     }
 
     #[inline]
-    pub fn remove<I>(&mut self, idx: Index)
-    {
+    pub fn remove<I>(&mut self, idx: Index) {
         unsafe { ffi::lua_remove(self.pointer, idx.as_absolute()) }
     }
 
     #[inline]
-    pub fn raw_len<I>(&self, idx: Index) -> usize
-    {
+    pub fn raw_len<I>(&self, idx: Index) -> usize {
         unsafe { ffi::lua_rawlen(self.pointer, idx.as_absolute()) }
     }
 
@@ -359,7 +394,7 @@ impl LuaState {
     }
 }
 
-impl Drop for LuaState {
+impl Drop for State {
     fn drop(&mut self) {
         if self.owned {
             unsafe { ffi::lua_close(self.pointer) }
@@ -367,7 +402,7 @@ impl Drop for LuaState {
     }
 }
 
-impl<'a> LuaGc<'a> {
+impl<'a> Gc<'a> {
     #[inline]
     pub fn collect(&mut self) {
         unsafe { ffi::lua_gc(self.state.pointer, ffi::LUA_GCCOLLECT as _, 0) };

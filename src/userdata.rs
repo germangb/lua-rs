@@ -1,37 +1,8 @@
-//! # Example
-//!
-//! ```
-//! use lua::prelude::*;
-//! 
-//! #[derive(Debug)]
-//! struct Foo {
-//!     bar: Vec<i32>,
-//!     baz: String,
-//! }
-//! 
-//! impl LuaUserData for Foo {
-//!     // An identifier, unique to the Type
-//!     const METATABLE: &'static str = "Example.foo";
-//! }
-//! 
-//! let mut state = LuaState::new();
-//! 
-//! state.push_udata(Foo {
-//!     bar: vec![0; 16],
-//!     baz: String::from("Hello world!"),
-//! }).unwrap();
-//! 
-//! // Get a reference to the stack
-//! let foo: &Foo = state.get_udata(Index::TOP).unwrap();
-//! 
-//! // To get a mutable reference, use this instead:
-//! // let foomut: &mut Foo = state.get_udata_mut(Index::TOP).unwrap();
-//! ```
-use index::Index;
-use {ffi, Error, CheckLua, IntoLua, LuaState, Result};
+use Index;
+use {ffi, CheckLua, Error, IntoLua, Result, State};
 
 use functions;
-use functions::LuaFunction;
+use functions::Function;
 
 use ffi::AsCStr;
 
@@ -41,32 +12,35 @@ use std::rc::Rc;
 use std::{mem, ops, ptr};
 
 /// Type to implement Lua userdata, which is an arbitrary block of memory managed by Lua
-pub trait LuaUserData {
+pub trait UserData {
     /// Name of the metatable
     const METATABLE: &'static str;
 
     /// Called only once to register the metamethods of the type.
-    fn register(meta: &mut Meta) {}
+    fn register(meta: &mut MetaTable) {}
 }
 
 /// Trait to read userdatums from Lua
-pub trait FromLuaData {
+pub trait FromLua {
     /// Get a reference
-    unsafe fn from_lua(state: &LuaState, idx: Index) -> Result<&Self>;
-
-    /// Get a mutable reference
-    unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self>;
+    unsafe fn from_lua(state: &State, idx: Index) -> Result<&Self>;
 }
 
-impl<T: LuaUserData> CheckLua for T {
-    unsafe fn check(state: &LuaState, idx: Index) -> bool {
+/// Trait to read userdatums from Lua that allow mutation
+pub trait FromLuaMut {
+    /// Get a mutable reference
+    unsafe fn from_lua_mut(state: &mut State, idx: Index) -> Result<&mut Self>;
+}
+
+impl<T: UserData> CheckLua for T {
+    unsafe fn check(state: &State, idx: Index) -> bool {
         let meta = CString::new(T::METATABLE).unwrap();
         !ffi::luaL_checkudata(state.pointer, idx.as_absolute(), meta.as_ptr() as _).is_null()
     }
 }
 
-impl<T: LuaUserData> FromLuaData for T {
-    unsafe fn from_lua(state: &LuaState, idx: Index) -> Result<&Self> {
+impl<T: UserData> FromLua for T {
+    unsafe fn from_lua(state: &State, idx: Index) -> Result<&Self> {
         if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
             return Err(Error::Type);
         }
@@ -80,8 +54,10 @@ impl<T: LuaUserData> FromLuaData for T {
 
         Ok(mem::transmute(pointer as *const T))
     }
+}
 
-    unsafe fn from_lua_mut(state: &mut LuaState, idx: Index) -> Result<&mut Self> {
+impl<T: UserData> FromLuaMut for T {
+    unsafe fn from_lua_mut(state: &mut State, idx: Index) -> Result<&mut Self> {
         if ffi::lua_isuserdata(state.pointer, idx.as_absolute()) == 0 {
             return Err(Error::Type);
         }
@@ -101,20 +77,20 @@ impl<T: LuaUserData> FromLuaData for T {
 pub struct LuaUserDataWrapper<T>(pub T);
 
 /// Type used to register userdata metamethods from the `LuaUserData` trait.
-pub struct Meta(*mut ffi::lua_State);
+pub struct MetaTable(*mut ffi::lua_State);
 
 macro_rules! impl_meta {
     (pub enum $name:ident { $( $variant:ident => $meta:expr ,)+ }) => {
         /// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-        pub enum Metamethod {
+        pub enum MetaMethod {
             $($variant,)+
         }
-        impl Metamethod {
+        impl MetaMethod {
             #[inline]
             fn as_cstr(&self) -> &str {
                 match *self {
-                    $(Metamethod::$variant => concat!($meta, "\0"),)+
+                    $(MetaMethod::$variant => concat!($meta, "\0"),)+
                 }
             }
         }
@@ -122,7 +98,7 @@ macro_rules! impl_meta {
 }
 
 impl_meta! {
-    pub enum Metamethod {
+    pub enum MetaMethod {
         ToString => "__tostring",
         Index => "__index",
         NewIndex => "__newindex",
@@ -142,11 +118,11 @@ impl_meta! {
     }
 }
 
-impl Meta {
+impl MetaTable {
     /// Register a metamethod
-    pub fn set<F>(&mut self, method: Metamethod)
+    pub fn set<F>(&mut self, method: MetaMethod)
     where
-        F: LuaFunction,
+        F: Function,
     {
         unsafe {
             ffi::lua_pushstring(self.0, method.as_cstr().as_ptr() as _);
@@ -158,9 +134,9 @@ impl Meta {
 
 impl<D> IntoLua for LuaUserDataWrapper<D>
 where
-    D: LuaUserData,
+    D: UserData,
 {
-    unsafe fn into_lua(self, state: &mut LuaState) {
+    unsafe fn into_lua(self, state: &mut State) {
         let data = self.0;
         let ptr = ffi::lua_newuserdata(state.pointer, mem::size_of::<D>()) as *mut D;
 
@@ -170,7 +146,7 @@ where
             ffi::lua_pushcfunction(state.pointer, Some(__gc::<D>));
             ffi::lua_settable(state.pointer, -3);
 
-            let mut meta = Meta(state.pointer);
+            let mut meta = MetaTable(state.pointer);
             D::register(&mut meta);
         }
         ffi::lua_setmetatable(state.pointer, -2);
@@ -182,6 +158,5 @@ where
             ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut D);
             0
         }
-
     }
 }
