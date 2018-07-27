@@ -29,7 +29,7 @@ impl Error {
             ffi::LUA_ERRRUN => Error::Runtime,
             ffi::LUA_ERRMEM => Error::Memory,
             ffi::LUA_ERRGCMM => Error::Gc,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -53,4 +53,3 @@ impl fmt::Display for Error {
         }
     }
 }
-

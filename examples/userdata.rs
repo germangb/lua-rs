@@ -12,7 +12,7 @@ impl lua::Function for DebugFoo {
     type Error = Error;
 
     fn call(state: &mut State) -> Result<usize, Error> {
-        let debug = format!("{:?}", state.get_udata::<Foo>(Index::Bottom(1))?);
+        let debug = format!("{:?}", state.get_udata::<Foo, _>(Index::Bottom(1))?);
         state.push(debug)?;
         Ok(1)
     }
@@ -61,8 +61,14 @@ fn main() {
     }
 
     state.push("hello world!");
+    state.push(true);
+
+    assert_eq!(Some("true"), state.get::<&str, _>(Index::TOP).ok());
+    //println!("{:?}", state.get::<&str>(Index::TOP));
+    /*
     if state.is::<str>(Index::TOP) {
         //state.push_nil();
         let line: &str = state.get(Index::TOP).expect("not a string...");
     }
+    */
 }

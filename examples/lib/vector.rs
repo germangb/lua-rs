@@ -93,7 +93,7 @@ impl Function for Get {
 
     fn call(state: &mut State) -> Result<usize, Error> {
         let index: usize = state.get(Index::Bottom(2))?;
-        let value = state.get_udata::<Vector>(Index::Bottom(1)).map(|s| s.get(index));
+        let value = state.get_udata(Index::Bottom(1)).map(|s: &Vector| s.get(index));
 
         state.push(value?);
         Ok(1)
@@ -104,7 +104,7 @@ impl Function for Length {
     type Error = Error;
 
     fn call(state: &mut State) -> Result<usize, Error> {
-        let len = state.get_udata::<Vector>(Index::Bottom(1)).map(|s| s.len())?;
+        let len = state.get_udata(Index::Bottom(1)).map(|s: &Vector| s.len())?;
 
         state.push(len);
         Ok(1)
