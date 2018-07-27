@@ -24,9 +24,7 @@ where
     match F::call(&mut pointer) {
         Ok(n) => n as raw::c_int,
         Err(e) => unsafe {
-            pointer
-                .push(format!("{}", e))
-                .expect("Unable to push error message");
+            pointer.push(format!("{}", e));
             ffi::lua_error(state);
             unreachable!()
         },

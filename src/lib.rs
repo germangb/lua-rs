@@ -13,10 +13,24 @@
 //!     foo = 42
 //! "#).unwrap();
 //!
-//! state.get_global("foo").unwrap();
+//! state.get_global("foo");
 //!
 //! assert_eq!(Ok(42), state.get(-1));
 //! assert_eq!(Ok("42"), state.get(-1));
+//!
+//! // define a global function
+//! state.eval(r#"
+//!     function square(n)
+//!         return n*n
+//!     end
+//! "#).unwrap();
+//!
+//! state.get_global("square");
+//! state.push(4);
+//!
+//! state.pcall(1, 1).unwrap();
+//!
+//! assert_eq!(Ok(16), state.get(-1));
 //! ```
 #[macro_use]
 mod macros;
@@ -41,10 +55,10 @@ pub mod userdata;
 ///
 /// let mut state = lua::State::new();
 ///
-/// state.push("128").unwrap(); // Index::Top(4)
-/// state.push_nil().unwrap();  // Index::Top(3)
-/// state.push(16).unwrap();    // Index::Top(2)
-/// state.push(true).unwrap();  // Index::Top(1)
+/// state.push("128");
+/// state.push_nil();
+/// state.push(16);
+/// state.push(true);
 ///
 /// // Numeric
 /// assert_eq!(Ok(128), state.get(-4));
@@ -68,7 +82,10 @@ pub use index::Index;
 pub use userdata::UserData;
 
 use ffi::AsCStr;
-use std::{fmt, fs::File, io::Read, os::raw, path::Path, str};
+use userdata::{MetaMethod, MetaTable};
+
+use std::ffi::CString;
+use std::{fmt, fs::File, io::Read, mem, os::raw, path::Path, ptr, str};
 
 /// Custom type to return lua errors
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -155,7 +172,7 @@ impl State {
 
     pub fn eval<T: AsCStr>(&mut self, source: T) -> Result<()> {
         self.load(source)?;
-        self.call_protected(0, ffi::LUA_MULTRET as _)?;
+        self.pcall(0, ffi::LUA_MULTRET as _)?;
         Ok(())
     }
 
@@ -185,7 +202,7 @@ impl State {
         self.load(data.as_slice())
     }
 
-    pub fn call_protected(&mut self, nargs: usize, nresults: usize) -> Result<()> {
+    pub fn pcall(&mut self, nargs: usize, nresults: usize) -> Result<()> {
         unsafe {
             match ffi::lua_pcall(self.pointer, nargs as _, nresults as _, 0) as _ {
                 ffi::LUA_OK => Ok(()),
@@ -215,31 +232,38 @@ impl State {
     }
 
     #[inline]
-    pub fn push_function<F: Function>(&mut self) -> Result<()> {
-        unsafe {
-            if ffi::lua_checkstack(self.pointer, 1) == 0 {
-                Err(Error::Memory)
-            } else {
-                ffi::lua_pushcfunction(self.pointer, Some(functions::function::<F>));
-                Ok(())
-            }
-        }
+    pub fn push_function<F: Function>(&mut self) {
+        unsafe { ffi::lua_pushcfunction(self.pointer, Some(functions::function::<F>)) };
     }
 
-    pub fn push_udata<U: UserData>(&mut self, data: U) -> Result<()> {
-        self.push(userdata::LuaUserDataWrapper(data))
+    pub fn push_udata<U: UserData>(&mut self, data: U) {
+        unsafe {
+            let ptr = ffi::lua_newuserdata(self.pointer, mem::size_of::<U>()) as *mut U;
+            let table_name = CString::new(U::METATABLE).unwrap();
+
+            if ffi::luaL_newmetatable(self.pointer, table_name.as_ptr() as _) == 1 {
+                ffi::lua_pushstring(self.pointer, "__gc\0".as_ptr() as _);
+                ffi::lua_pushcfunction(self.pointer, Some(__gc::<U>));
+                ffi::lua_settable(self.pointer, -3);
+
+                let mut meta = MetaTable(self.pointer);
+                U::register(&mut meta);
+            }
+            ffi::lua_setmetatable(self.pointer, -2);
+
+            ptr::copy(&data, ptr, 1);
+            mem::forget(data);
+        }
+
+        unsafe extern "C" fn __gc<U>(state: *mut ffi::lua_State) -> raw::c_int {
+            ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut U);
+            0
+        }
     }
 
     #[inline]
-    pub fn push<T: IntoLua>(&mut self, value: T) -> Result<()> {
-        unsafe {
-            if ffi::lua_checkstack(self.pointer, 1) == 0 {
-                Err(Error::Memory)
-            } else {
-                value.into_lua(self);
-                Ok(())
-            }
-        }
+    pub fn push<T: IntoLua>(&mut self, value: T) {
+        unsafe { value.into_lua(self) };
     }
 
     #[inline]
@@ -256,27 +280,13 @@ impl State {
     }
 
     #[inline]
-    pub fn push_nil(&mut self) -> Result<()> {
-        unsafe {
-            if ffi::lua_checkstack(self.pointer, 1) == 0 {
-                Err(Error::Memory)
-            } else {
-                ffi::lua_pushnil(self.pointer);
-                Ok(())
-            }
-        }
+    pub fn push_nil(&mut self) {
+        unsafe { ffi::lua_pushnil(self.pointer) };
     }
 
     #[inline]
-    pub fn push_table(&mut self) -> Result<()> {
-        unsafe {
-            if ffi::lua_checkstack(self.pointer, 1) == 0 {
-                Err(Error::Memory)
-            } else {
-                ffi::lua_newtable(self.pointer);
-                Ok(())
-            }
-        }
+    pub fn push_table(&mut self) {
+        unsafe { ffi::lua_newtable(self.pointer) };
     }
 
     #[inline]
@@ -349,7 +359,7 @@ impl State {
     }
 
     #[inline]
-    pub fn stack_size(&self) -> usize {
+    pub fn get_top(&self) -> usize {
         unsafe { ffi::lua_gettop(self.pointer) as _ }
     }
 
@@ -359,15 +369,8 @@ impl State {
     }
 
     #[inline]
-    pub fn get_global<N: AsCStr>(&mut self, n: N) -> Result<()> {
-        unsafe {
-            if ffi::lua_checkstack(self.pointer, 1) == 0 {
-                Err(Error::Memory)
-            } else {
-                ffi::lua_getglobal(self.pointer, n.as_cstr().as_ptr());
-                Ok(())
-            }
-        }
+    pub fn get_global<N: AsCStr>(&mut self, n: N) {
+        unsafe { ffi::lua_getglobal(self.pointer, n.as_cstr().as_ptr()) };
     }
 
     #[inline]
@@ -384,6 +387,7 @@ impl State {
 macro_rules! std_libs {
     ( $(#[$meta:meta])* pub enum Lib { $( $(#[$meta_var:meta])* $variant:ident => $loader:path ,)+ }) => {
         $(#[$meta])+
+        #[cfg(feature = "stdlib")]
         pub enum Lib {
             $($(#[$meta_var:meta])* $variant,)+
         }
@@ -404,7 +408,6 @@ macro_rules! std_libs {
 std_libs! {
     /// Standard libraries
     #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-    #[cfg(feature = "stdlib")]
     pub enum Lib {
         Base => ffi::luaopen_base,
         Bit32 => ffi::luaopen_bit32,

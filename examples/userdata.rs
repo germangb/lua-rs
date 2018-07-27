@@ -13,7 +13,7 @@ impl lua::Function for DebugFoo {
 
     fn call(state: &mut State) -> Result<usize, Error> {
         let debug = format!("{:?}", state.get_udata::<Foo, _>(Index::Bottom(1))?);
-        state.push(debug)?;
+        state.push(debug);
         Ok(1)
     }
 }
@@ -44,19 +44,19 @@ fn main() {
     state.push_udata(Foo {
         bar: 32,
         baz: Rc::clone(&baz),
-    }).unwrap();
+    });
 
     state.set_global("foo");
 
-    state.push_function::<DebugFoo>().unwrap();
+    state.push_function::<DebugFoo>();
     state.set_global("debug");
 
     state.eval("print(debug(foo))").unwrap();
     state.eval("print(foo)").unwrap();
 
     {
-        state.get_global("foo").unwrap();
-        let datum: &Foo = state.get_udata(Index::TOP).unwrap();
+        state.get_global("foo");
+        let datum: &Foo = state.get_udata(-1).unwrap();
         println!("{:?}", datum);
     }
 
@@ -64,11 +64,4 @@ fn main() {
     state.push(true);
 
     assert_eq!(Some("true"), state.get::<&str, _>(Index::TOP).ok());
-    //println!("{:?}", state.get::<&str>(Index::TOP));
-    /*
-    if state.is::<str>(Index::TOP) {
-        //state.push_nil();
-        let line: &str = state.get(Index::TOP).expect("not a string...");
-    }
-    */
 }

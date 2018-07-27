@@ -73,18 +73,23 @@ impl<T: UserData> FromLuaMut for T {
     }
 }
 
-#[doc(hidden)]
-pub struct LuaUserDataWrapper<T>(pub T);
-
 /// Type used to register userdata metamethods from the `LuaUserData` trait.
-pub struct MetaTable(*mut ffi::lua_State);
+pub struct MetaTable(pub(crate) *mut ffi::lua_State);
 
 macro_rules! impl_meta {
-    (pub enum $name:ident { $( $variant:ident => $meta:expr ,)+ }) => {
-        /// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
-        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+    (
+        $(#[$meta_h:meta])*
+        pub enum $name:ident {
+            $(
+                $(#[$meta_v:meta])*
+                $variant:ident => $meta:expr ,
+            )+
+        }
+    ) => {
+
+        $(#[$meta_h])*
         pub enum MetaMethod {
-            $($variant,)+
+            $( $(#[$meta_v])* $variant,)+
         }
         impl MetaMethod {
             #[inline]
@@ -98,6 +103,8 @@ macro_rules! impl_meta {
 }
 
 impl_meta! {
+    /// Metamethods. All metamethods are supported except for `__gc`, which is implemented by the `Drop` trat.
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
     pub enum MetaMethod {
         ToString => "__tostring",
         Index => "__index",
@@ -128,35 +135,6 @@ impl MetaTable {
             ffi::lua_pushstring(self.0, method.as_cstr().as_ptr() as _);
             ffi::lua_pushcfunction(self.0, Some(functions::function::<F>));
             ffi::lua_settable(self.0, -3);
-        }
-    }
-}
-
-impl<D> IntoLua for LuaUserDataWrapper<D>
-where
-    D: UserData,
-{
-    unsafe fn into_lua(self, state: &mut State) {
-        let data = self.0;
-        let ptr = ffi::lua_newuserdata(state.pointer, mem::size_of::<D>()) as *mut D;
-
-        let table_name = CString::new(D::METATABLE).unwrap();
-        if ffi::luaL_newmetatable(state.pointer, table_name.as_ptr() as _) == 1 {
-            ffi::lua_pushstring(state.pointer, "__gc\0".as_ptr() as _);
-            ffi::lua_pushcfunction(state.pointer, Some(__gc::<D>));
-            ffi::lua_settable(state.pointer, -3);
-
-            let mut meta = MetaTable(state.pointer);
-            D::register(&mut meta);
-        }
-        ffi::lua_setmetatable(state.pointer, -2);
-
-        ptr::copy(&data, ptr, 1);
-        mem::forget(data);
-
-        unsafe extern "C" fn __gc<D>(state: *mut ffi::lua_State) -> raw::c_int {
-            ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut D);
-            0
         }
     }
 }

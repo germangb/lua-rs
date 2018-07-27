@@ -31,7 +31,7 @@ Types that implement the `Function` trait can be used as lua functions:
 ```rust
 extern crate lua;
 
-use lua::{Function, Index};
+use lua::Function;
 
 // A Type for a function that returns the length of a string
 enum StringLength {}
@@ -40,15 +40,15 @@ impl Function for StringLength {
     type Error = lua::Error;
 
     fn call(state: &mut lua::State) -> Result<usize, Self::Error> {
-        let length = state.get(Index::Bottom(1)).map(|s: &str| s.len())?;
-        state.push(length)?;
+        let length = state.get(1).map(|s: &str| s.len())?;
+        state.push(length);
         Ok(1)
     }
 }
 
 let mut state = lua::State::new();
 
-state.push_function::<StringLength>().unwrap();
+state.push_function::<StringLength>();
 state.set_global("length");
 
 state.eval("len = length('hello world')").unwrap(); // len = 11
@@ -63,7 +63,7 @@ For a more complete example, including setting up metamethods, see [this example
 ```rust
 extern crate lua;
 
-use lua::{UserData, Index};
+use lua::UserData;
 
 #[derive(Debug)]
 struct Foo {
@@ -84,8 +84,8 @@ state.push_udata(Foo {
 }).unwrap();
 
 // Get a reference to the stack
-let foo: &Foo = state.get_udata(Index::TOP).unwrap();
+let foo: &Foo = state.get_udata(-1).unwrap();
 
 // To get a mutable reference, use this instead:
-// let foomut: &mut Foo = state.get_udata_mut(Index::TOP).unwrap();
+// let foomut: &mut Foo = state.get_udata_mut(-1).unwrap();
 ```

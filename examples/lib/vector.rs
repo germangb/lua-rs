@@ -54,7 +54,7 @@ impl Function for ToString {
 
     fn call(state: &mut State) -> Result<usize, Error> {
         let string = state.get_udata(Index::Bottom(1)).map(|v: &Vector| format!("{:?}", v))?;
-        state.push(string)?;
+        state.push(string);
         Ok(1)
     }
 }
@@ -64,7 +64,7 @@ impl Function for New {
 
     fn call(state: &mut State) -> Result<usize, Error> {
         let cap: usize = state.get(Index::Bottom(1))?;
-        state.push_udata(Vector::new(cap))?;
+        state.push_udata(Vector::new(cap));
         Ok(1)
     }
 }
