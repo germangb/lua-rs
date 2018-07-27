@@ -1,14 +1,14 @@
 use ffi;
 
 use std::error::Error as StdError;
-use std::{fmt, io};
+use std::{fmt, io, io::ErrorKind};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Error {
     /// Error during UTF-8 encoding/decoding
     Utf8,
     /// Error during IO
-    Io(io::Error),
+    Io(io::ErrorKind),
     /// Lua program execution error
     Runtime,
     /// Malformed lua syntax
@@ -19,8 +19,6 @@ pub enum Error {
     Gc,
     /// Type error
     Type,
-    /// Some unknown error
-    Unknown,
 }
 
 impl Error {
@@ -31,14 +29,14 @@ impl Error {
             ffi::LUA_ERRRUN => Error::Runtime,
             ffi::LUA_ERRMEM => Error::Memory,
             ffi::LUA_ERRGCMM => Error::Gc,
-            _ => Error::Unknown,
+            _ => unreachable!()
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        Error::Io(err)
+        Error::Io(err.kind())
     }
 }
 
@@ -46,22 +44,13 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Utf8 => write!(f, "UTF-8 error"),
-            Error::Io(e) => write!(f, "IO error: {}", e),
+            Error::Io(e) => write!(f, "IO error: {:?}", e),
             Error::Runtime => write!(f, "Runtime error"),
             Error::Syntax => write!(f, "Syntax error"),
             Error::Memory => write!(f, "Memory error"),
             Error::Gc => write!(f, "Garbage collector error"),
             Error::Type => write!(f, "Unexpected type"),
-            Error::Unknown => write!(f, "Unknown error"),
         }
     }
 }
 
-impl StdError for Error {
-    fn cause(&self) -> Option<&StdError> {
-        match *self {
-            Error::Io(ref e) => Some(e),
-            _ => None,
-        }
-    }
-}

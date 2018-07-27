@@ -1,5 +1,3 @@
-//! ## Example
-//!
 //! ```
 //! extern crate lua;
 //!
@@ -17,7 +15,8 @@
 //!
 //! state.get_global("foo").unwrap();
 //!
-//! assert_eq!(Some(42), state.get(Index::TOP).ok());
+//! assert_eq!(Ok(42), state.get(Index::TOP));
+//! assert_eq!(Ok("42"), state.get(Index::TOP));
 //! ```
 #[macro_use]
 mod macros;
@@ -47,18 +46,18 @@ pub mod userdata;
 /// state.push(true).unwrap();  // Index::Top(1)
 ///
 /// // Numeric
-/// assert_eq!(Some(128), state.get(Index::Top(4)).ok());
-/// assert_eq!(Some(16), state.get(Index::Top(2)).ok());
-/// assert_eq!(Some(16.0), state.get(Index::Top(2)).ok());
+/// assert_eq!(Ok(128), state.get(Index::Top(4)));
+/// assert_eq!(Ok(16), state.get(Index::Top(2)));
+/// assert_eq!(Ok(16.0), state.get(Index::Top(2)));
 ///
 /// // Booleans return true for any value that is not `nil`
-/// assert_eq!(Some(true), state.get(Index::Top(1)).ok());
-/// assert_eq!(Some(false), state.get(Index::Top(3)).ok());
+/// assert_eq!(Ok(true), state.get(Index::Top(1)));
+/// assert_eq!(Ok(false), state.get(Index::Top(3)));
 ///
 /// // Some values can also be read as strings. Because string
 /// // in lua can contain arbitrary binary data, the `FromLua`
 /// // trait is implemented for both &str and [u8] slices
-/// assert_eq!(Some("16.0"), state.get(Index::Top(2)).ok());
+/// assert_eq!(Ok("16.0"), state.get(Index::Top(2)));
 /// ```
 pub mod values;
 

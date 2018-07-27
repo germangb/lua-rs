@@ -70,5 +70,6 @@ fn splash() {
     );
     eprintln!("  * rust.add(a, b) - Returns the sum of `a` and `b`");
     eprintln!("  * rust.len(c) - Returns the length of the string `c`");
+    eprintln!("  * vec.new(c) - Creates a vector of capacity c");
     eprintln!();
 }
