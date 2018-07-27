@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Function","Trait to implement functions that can be called from Lua"]]});

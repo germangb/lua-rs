@@ -1,0 +1,140 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `lua` crate."><meta name="keywords" content="rust, rustlang, rust-lang, lua"><title>lua - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate lua</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'lua', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>lua</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/lua/lib.rs.html#1-471' title='goto source code'>[src]</a></span></h1><div class='docblock'>
+<pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">lua</span>;
+
+<span class="kw">use</span> <span class="ident">lua</span>::<span class="ident">Index</span>;
+
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">lua</span>::<span class="ident">State</span>::<span class="ident">new</span>();
+<span class="ident">state</span>.<span class="ident">open_libs</span>();
+
+<span class="ident">state</span>.<span class="ident">eval</span>(<span class="string">r#&quot;
+    print (&#39;hello world&#39;)
+
+    -- define global vars
+    foo = 42
+&quot;#</span>).<span class="ident">unwrap</span>();
+
+<span class="ident">state</span>.<span class="ident">get_global</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">unwrap</span>();
+
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="prelude-val">Ok</span>(<span class="number">42</span>), <span class="ident">state</span>.<span class="ident">get</span>(<span class="op">-</span><span class="number">1</span>));
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="prelude-val">Ok</span>(<span class="string">&quot;42&quot;</span>), <span class="ident">state</span>.<span class="ident">get</span>(<span class="op">-</span><span class="number">1</span>));</pre>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use error::<a class="enum" href="../lua/error/enum.Error.html" title="enum lua::error::Error">Error</a>;</code></td></tr><tr><td><code>pub use functions::<a class="trait" href="../lua/functions/trait.Function.html" title="trait lua::functions::Function">Function</a>;</code></td></tr><tr><td><code>pub use index::<a class="enum" href="../lua/index/enum.Index.html" title="enum lua::index::Index">Index</a>;</code></td></tr><tr><td><code>pub use userdata::<a class="trait" href="../lua/userdata/trait.UserData.html" title="trait lua::userdata::UserData">UserData</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="error/index.html"
+                                  title='mod lua::error'>error</a></td>
+                           <td class='docblock-short'>
+                                <p>Error type</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="ffi/index.html"
+                                  title='mod lua::ffi'>ffi</a></td>
+                           <td class='docblock-short'>
+                                <p>Raw bindings from the Lua C API</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="functions/index.html"
+                                  title='mod lua::functions'>functions</a></td>
+                           <td class='docblock-short'>
+                                <p>Traits to implement lua functions in Rust</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="index/index.html"
+                                  title='mod lua::index'>index</a></td>
+                           <td class='docblock-short'>
+                                <p>Types for indexing the stack</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="userdata/index.html"
+                                  title='mod lua::userdata'>userdata</a></td>
+                           <td class='docblock-short'>
+                                <p>Traits to work with user defined Types from lua</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="values/index.html"
+                                  title='mod lua::values'>values</a></td>
+                           <td class='docblock-short'>
+                                <p>Implementations of <code>FromLua</code> and <code>IntoLua</code> for rust primitives.</p>
+
+                           </td>
+                       </tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="macro" href="macro.lua_library.html"
+                                  title='macro lua::lua_library'>lua_library</a></td>
+                           <td class='docblock-short'>
+                                <p>Macro that expands into a function that loads a table of functions into a global variable</p>
+
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Gc.html"
+                                  title='struct lua::Gc'>Gc</a></td>
+                           <td class='docblock-short'>
+                                <p>To configure garbage collection</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.State.html"
+                                  title='struct lua::State'>State</a></td>
+                           <td class='docblock-short'>
+                                <p>Type to perform operations over an underlying <code>lua_State</code> safely</p>
+
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.Lib.html"
+                                  title='enum lua::Lib'>Lib</a></td>
+                           <td class='docblock-short'>
+                                <p>Standard libraries</p>
+
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CheckLua.html"
+                                  title='trait lua::CheckLua'>CheckLua</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait for type checking</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.FromLua.html"
+                                  title='trait lua::FromLua'>FromLua</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait for types that can be read from the lua stack</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.IntoLua.html"
+                                  title='trait lua::IntoLua'>IntoLua</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait for types that can be pushed to the lua stack</p>
+
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Result.html"
+                                  title='type lua::Result'>Result</a></td>
+                           <td class='docblock-short'>
+                                <p>Custom type to return lua errors</p>
+
+                           </td>
+                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "lua";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
