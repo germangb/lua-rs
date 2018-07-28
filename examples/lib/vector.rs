@@ -22,9 +22,11 @@ enum Get {}         // `__index` metamethod
 enum Insert {}      // `__newindex` metamethid
 
 impl UserData for Vector {
-    const METATABLE: &'static str = "Vector.Vector";
+    unsafe fn metatable_name() -> &'static str {
+        concat!(module_path!(), "::Vector")
+    }
 
-    fn register(meta: &mut MetaTable) {
+    fn register(meta: &mut MetaTable<Self>) {
         meta.set::<ToString>(MetaMethod::ToString);
         meta.set::<Length>(MetaMethod::Len);
         meta.set::<Get>(MetaMethod::Index);

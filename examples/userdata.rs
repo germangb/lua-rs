@@ -28,9 +28,11 @@ struct Foo {
 }
 
 impl lua::UserData for Foo {
-    const METATABLE: &'static str = "Example.foo";
+    unsafe fn metatable_name() -> &'static str {
+        concat!(module_path!(), "::Foo")
+    }
 
-    fn register(m: &mut MetaTable) {
+    fn register(m: &mut MetaTable<Self>) {
         m.set::<DebugFoo>(MetaMethod::ToString);
     }
 }

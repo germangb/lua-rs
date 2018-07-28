@@ -1,8 +1,8 @@
 use {ffi, Error, State};
 
-use std::fmt;
 use std::fmt::Display;
 use std::os::raw;
+use std::{fmt, ptr};
 
 /// Trait to implement functions that can be called from Lua
 pub trait Function {
@@ -25,6 +25,30 @@ where
         Ok(n) => n as raw::c_int,
         Err(e) => unsafe {
             pointer.push(format!("{}", e));
+            ffi::lua_error(state);
+            unreachable!()
+        },
+    }
+}
+
+// GC metamethod
+pub(crate) extern "C" fn function_gc<F, U>(state: *mut ffi::lua_State) -> raw::c_int
+where
+    F: Function,
+{
+    let mut pointer = State {
+        owned: false,
+        pointer: state,
+    };
+    match F::call(&mut pointer) {
+        Ok(n) => {
+            unsafe { ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut U) };
+            n as raw::c_int
+        }
+        Err(e) => unsafe {
+            unsafe { ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut U) };
+            pointer.push(format!("{}", e));
+
             ffi::lua_error(state);
             unreachable!()
         },

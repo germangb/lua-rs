@@ -1,7 +1,15 @@
+// TODO refactor traits
+//
+// ## Reading from the stack
+//
+// FromLua -> Get a copy value (numerical)
+// FromLuaRef -> Get a reference (userdata & strings)
+// FromLuaRefMut -> Get a mutable reference (userdata)
+//
+// ## Inserting into the stack
+//
 //! ```
 //! extern crate lua;
-//!
-//! use lua::Index;
 //!
 //! let mut state = lua::State::new();
 //! state.open_libs();
@@ -9,8 +17,11 @@
 //! state.eval(r#"
 //!     print ('hello world')
 //!
-//!     -- define global vars
 //!     foo = 42
+//!
+//!     function square(n)
+//!         return n*n
+//!     end
 //! "#).unwrap();
 //!
 //! state.get_global("foo");
@@ -18,13 +29,7 @@
 //! assert_eq!(Ok(42), state.get(-1));
 //! assert_eq!(Ok("42"), state.get(-1));
 //!
-//! // define a global function
-//! state.eval(r#"
-//!     function square(n)
-//!         return n*n
-//!     end
-//! "#).unwrap();
-//!
+//! // call `foo` function
 //! state.get_global("square");
 //! state.push(4);
 //!
@@ -85,6 +90,7 @@ use ffi::AsCStr;
 use userdata::{MetaMethod, MetaTable};
 
 use std::ffi::CString;
+use std::marker::PhantomData;
 use std::{fmt, fs::File, io::Read, mem, os::raw, path::Path, ptr, str};
 
 /// Custom type to return lua errors
@@ -239,14 +245,15 @@ impl State {
     pub fn push_udata<U: UserData>(&mut self, data: U) {
         unsafe {
             let ptr = ffi::lua_newuserdata(self.pointer, mem::size_of::<U>()) as *mut U;
-            let table_name = CString::new(U::METATABLE).unwrap();
+            //let table_name = CString::new(U::METATABLE).unwrap();
+            let table_name = CString::new(U::metatable_name()).unwrap();
 
             if ffi::luaL_newmetatable(self.pointer, table_name.as_ptr() as _) == 1 {
                 ffi::lua_pushstring(self.pointer, "__gc\0".as_ptr() as _);
                 ffi::lua_pushcfunction(self.pointer, Some(__gc::<U>));
                 ffi::lua_settable(self.pointer, -3);
 
-                let mut meta = MetaTable(self.pointer);
+                let mut meta = MetaTable(self.pointer, PhantomData::<U>);
                 U::register(&mut meta);
             }
             ffi::lua_setmetatable(self.pointer, -2);
@@ -255,6 +262,7 @@ impl State {
             mem::forget(data);
         }
 
+        // default drop function
         unsafe extern "C" fn __gc<U>(state: *mut ffi::lua_State) -> raw::c_int {
             ptr::drop_in_place(ffi::lua_touserdata(state, -1) as *mut U);
             0
@@ -267,15 +275,20 @@ impl State {
     }
 
     #[inline]
-    pub fn get_udata<T: userdata::FromLua, I: Into<Index>>(&self, idx: I) -> Result<&T> {
+    pub fn get_udata<T, I>(&self, idx: I) -> Result<&T>
+    where
+        T: userdata::FromLua,
+        I: Into<Index>,
+    {
         unsafe { T::from_lua(self, idx.into()) }
     }
 
     #[inline]
-    pub fn get_udata_mut<T: userdata::FromLuaMut, I: Into<Index>>(
-        &mut self,
-        idx: I,
-    ) -> Result<&mut T> {
+    pub fn get_udata_mut<T, I>(&mut self, idx: I) -> Result<&mut T>
+    where
+        T: userdata::FromLuaMut,
+        I: Into<Index>,
+    {
         unsafe { T::from_lua_mut(self, idx.into()) }
     }
 
@@ -290,42 +303,67 @@ impl State {
     }
 
     #[inline]
-    pub fn is_function<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_function<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isfunction(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn is_udata<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_udata<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isuserdata(self.pointer, idx.into().as_absolute()) == 1 }
     }
 
     #[inline]
-    pub fn is_light_udata<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_light_udata<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_islightuserdata(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn is_nil<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_nil<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isnil(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn is_number<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_number<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isnumber(self.pointer, idx.into().as_absolute()) == 1 }
     }
 
     #[inline]
-    pub fn is_integer<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_integer<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isinteger(self.pointer, idx.into().as_absolute()) == 1 }
     }
 
     #[inline]
-    pub fn is_string<I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is_string<I>(&self, idx: I) -> bool
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_isstring(self.pointer, idx.into().as_absolute()) == 1 }
     }
 
     #[inline]
-    pub fn is<T: ?Sized + CheckLua, I: Into<Index>>(&self, idx: I) -> bool {
+    pub fn is<T, I>(&self, idx: I) -> bool
+    where
+        T: ?Sized + CheckLua,
+        I: Into<Index>,
+    {
         unsafe { T::check(self, idx.into()) }
     }
 
@@ -339,22 +377,34 @@ impl State {
     }
 
     #[inline]
-    pub fn insert<I: Into<Index>>(&mut self, idx: I) {
+    pub fn insert<I>(&mut self, idx: I)
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_insert(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn replace<I: Into<Index>>(&mut self, idx: I) {
+    pub fn replace<I>(&mut self, idx: I)
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_replace(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn remove<I: Into<Index>>(&mut self, idx: I) {
+    pub fn remove<I>(&mut self, idx: I)
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_remove(self.pointer, idx.into().as_absolute()) }
     }
 
     #[inline]
-    pub fn raw_len<I: Into<Index>>(&self, idx: I) -> usize {
+    pub fn raw_len<I>(&self, idx: I) -> usize
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_rawlen(self.pointer, idx.into().as_absolute()) }
     }
 
@@ -374,12 +424,18 @@ impl State {
     }
 
     #[inline]
-    pub fn set_table<I: Into<Index>>(&mut self, idx: I) {
+    pub fn set_table<I>(&mut self, idx: I)
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_settable(self.pointer, idx.into().as_absolute()) };
     }
 
     #[inline]
-    pub fn raw_seti<I: Into<Index>>(&mut self, idx: I, i: i64) {
+    pub fn raw_seti<I>(&mut self, idx: I, i: i64)
+    where
+        I: Into<Index>,
+    {
         unsafe { ffi::lua_rawseti(self.pointer, idx.into().as_absolute(), i) };
     }
 }
